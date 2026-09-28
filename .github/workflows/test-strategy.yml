@@ -8,6 +8,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
+    env:
+      TWELVEDATA_KEY: ${{ secrets.TWELVEDATA_KEY }}
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      GH_GIST_ID: ${{ secrets.GH_GIST_ID }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -15,9 +22,6 @@ jobs:
         run: |
           echo "===== CURRENT COMMIT ====="
           git log -1 --oneline
-          echo ""
-          echo "===== src/config.py ====="
-          cat src/config.py
           echo ""
           echo "===== grep TIMEFRAMES ====="
           grep -n "TIMEFRAMES" src/config.py || echo "NOT FOUND!"
@@ -47,10 +51,4 @@ jobs:
           "
 
       - name: Run strategy diagnostic
-        env:
-          TWELVEDATA_KEY: ${{ secrets.TWELVEDATA_KEY }}
-          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GH_GIST_ID: ${{ secrets.GH_GIST_ID }}
-          GH_PAT: ${{ secrets.GH_PAT }}
         run: python test_strategy.py
