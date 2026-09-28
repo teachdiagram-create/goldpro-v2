@@ -7,15 +7,16 @@ def _emoji(side: str) -> str:
 
 
 def format_message(sig: dict) -> str:
+    tf = sig.get("timeframe", "5min").replace("min", "M")
     return (
-        f"{_emoji(sig['side'])} <b>GOLD {sig['side']} SIGNAL</b>\n"
+        f"{_emoji(sig['side'])} <b>GOLD {sig['side']} — {tf}</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
         f"💵 Entry: <b>{sig['entry']}</b>\n"
-        f"🛑 SL: {sig['sl']}  (1.5×ATR)\n"
-        f"🎯 TP: {sig['tp']}  (2.0×ATR)\n"
-        f"📊 RSI: {sig['rsi']} | ADX: {sig['adx']}\n"
-        f"📈 ATR: {sig['atr']}\n"
-        f"⏰ {sig['time']} UTC"
+        f"🛑 SL: {sig['sl']}\n"
+        f"🎯 TP: {sig['tp']}\n"
+        f"📊 RSI: {sig.get('rsi', 'N/A')} | ADX: {sig.get('adx', 'N/A')}\n"
+        f"📈 ATR: {sig.get('atr', 'N/A')}\n"
+        f"⏰ {sig.get('time', 'N/A')} UTC"
     )
 
 
