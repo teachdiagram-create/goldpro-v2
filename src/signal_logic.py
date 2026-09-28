@@ -1,62 +1,73 @@
-from src.config import (
-    ADX_MIN, RSI_BUY_MIN, RSI_BUY_MAX,
-    RSI_SELL_MIN, RSI_SELL_MAX,
-    SL_ATR_MULT, TP_ATR_MULT,
-)
+from src.config import SL_ATR_MULT, TP_ATR_MULT
+from src.strategy import detect_double_top_sell, detect_double_bottom_buy
 
 
-def evaluate_signal(df):
-    """آخرین کندل بسته‌شده را ارزیابی می‌کند (کندل در حال تشکیل نادیده گرفته می‌شود)"""
-    row = df.iloc[-2]  # -1 در حال تشکیل است
+def evaluate_signal(df, timeframe: str = "5min"):
+    """
+    ارزیابی آخرین کندل بسته‌شده با استراتژی RSI Double Top/Bottom
+    """
+    # فقط کندل‌های بسته‌شده (کندل در حال تشکیل را حذف می‌کنیم)
+    closed = df.iloc[:-1]
+    current = closed.iloc[-1]
 
-    price = row["close"]
-    ema_f = row["ema_fast"]
-    ema_s = row["ema_slow"]
-    rsi_ = row["rsi"]
-    adx_ = row["adx"]
-    macd_ = row["macd"]
-    macd_sig = row["macd_signal"]
-    macd_h = row["macd_hist"]
-    atr_ = row["atr"]
+    rsi_series = closed["rsi"]
 
-    buy = (
-        ema_f > ema_s
-        and RSI_BUY_MIN < rsi_ < RSI_BUY_MAX
-        and adx_ > ADX_MIN
-        and macd_ > macd_sig
-        and macd_h > 0
-    )
+    price = float(current["close"])
+    atr_ = float(current["atr"])
 
-    sell = (
-        ema_f < ema_s
-        and RSI_SELL_MIN < rsi_ < RSI_SELL_MAX
-        and adx_ > ADX_MIN
-        and macd_ < macd_sig
-        and macd_h < 0
-    )
+    base = {
+        "timeframe": timeframe,
+        "rsi": round(float(current["rsi"]), 1),
+        "time": str(current["datetime"]),
+    }
 
-    if buy:
+    # ── چک SELL: دابل تاپ ──
+    sell_setup = detect_double_top_sell(rsi_series)
+    if sell_setup:
+        # SL = بالاترین High اخیر + بافر ATR
+        recent_high = float(closed["high"].tail(20).max())
+        sl = round(recent_high + 0.5 * atr_, 2)
+        risk = sl - price
+        if risk <= 0:
+            risk = 1.0 * atr_
+            sl = round(price + risk, 2)
+        tp = round(price - TP_ATR_MULT * atr_, 2)
+
         return {
-            "side": "BUY",
-            "entry": round(price, 2),
-            "sl": round(price - SL_ATR_MULT * atr_, 2),
-            "tp": round(price + TP_ATR_MULT * atr_, 2),
-            "rsi": round(rsi_, 1),
-            "adx": round(adx_, 1),
-            "atr": round(atr_, 2),
-            "time": str(row["datetime"]),
-        }
-
-    if sell:
-        return {
+            **base,
             "side": "SELL",
             "entry": round(price, 2),
-            "sl": round(price + SL_ATR_MULT * atr_, 2),
-            "tp": round(price - TP_ATR_MULT * atr_, 2),
-            "rsi": round(rsi_, 1),
-            "adx": round(adx_, 1),
+            "sl": sl,
+            "tp": tp,
             "atr": round(atr_, 2),
-            "time": str(row["datetime"]),
+            "reason": (
+                f"RSI double top: {sell_setup['peak1_value']} → "
+                f"{sell_setup['peak2_value']} (now {sell_setup['current_rsi']})"
+            ),
+        }
+
+    # ── چک BUY: دابل باتم ──
+    buy_setup = detect_double_bottom_buy(rsi_series)
+    if buy_setup:
+        recent_low = float(closed["low"].tail(20).min())
+        sl = round(recent_low - 0.5 * atr_, 2)
+        risk = price - sl
+        if risk <= 0:
+            risk = 1.0 * atr_
+            sl = round(price - risk, 2)
+        tp = round(price + TP_ATR_MULT * atr_, 2)
+
+        return {
+            **base,
+            "side": "BUY",
+            "entry": round(price, 2),
+            "sl": sl,
+            "tp": tp,
+            "atr": round(atr_, 2),
+            "reason": (
+                f"RSI double bottom: {buy_setup['trough1_value']} → "
+                f"{buy_setup['trough2_value']} (now {buy_setup['current_rsi']})"
+            ),
         }
 
     return None
