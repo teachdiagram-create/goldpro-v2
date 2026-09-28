@@ -155,9 +155,9 @@ def main():
     print(f"📥 Got {len(df)} candles\n")
 
     # پارامترها
-    adx_values = [20, 25, 30, 35]
-    sl_values = [1.0, 1.5, 2.0, 2.5]
-    tp_values = [2.0, 3.0, 4.0]
+    adx_values = [10, 15, 20]
+    sl_values = [2.0, 2.5, 3.0]
+    tp_values = [1.5, 2.0, 2.5, 3.0]
 
     results = []
     total_combos = len(adx_values) * len(sl_values) * len(tp_values)
