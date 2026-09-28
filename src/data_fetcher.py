@@ -1,14 +1,14 @@
 import requests
 import pandas as pd
-from src.config import TWELVEDATA_KEY, SYMBOL, INTERVAL, OUTPUT_SIZE
+from src.config import TWELVEDATA_KEY, SYMBOL, OUTPUT_SIZE
 
 
-def fetch_ohlc() -> pd.DataFrame:
-    """دریافت کندل‌های XAU/USD از TwelveData"""
+def fetch_ohlc(timeframe: str = "5min") -> pd.DataFrame:
+    """دریافت کندل‌های XAU/USD در تایم‌فریم مشخص"""
     url = "https://api.twelvedata.com/time_series"
     params = {
         "symbol": SYMBOL,
-        "interval": INTERVAL,
+        "interval": timeframe,
         "outputsize": OUTPUT_SIZE,
         "apikey": TWELVEDATA_KEY,
         "format": "JSON",
