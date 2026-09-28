@@ -9,7 +9,7 @@ def detect_double_top_sell(
     rsi: pd.Series,
     lookback: int = 50,
     threshold: float = 70.0,
-    max_bars_since_peak: int = 2,
+    max_bars_since_peak: int = 2,  # ← این پارامتر رو داشته باشه
     min_decline: float = 1.0,
 ):
     """
@@ -87,7 +87,7 @@ def detect_double_bottom_buy(
     rsi: pd.Series,
     lookback: int = 50,
     threshold: float = 30.0,
-    max_bars_since_trough: int = 2,
+    max_bars_since_trough: int = 2,  # ← این
     min_rise: float = 1.0,
 ):
     """تشخیص دابل باتم در RSI برای BUY (متقارن با دابل تاپ)"""
