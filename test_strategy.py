@@ -1,55 +1,46 @@
-from src.config import TIMEFRAMES
-from src.data_fetcher import fetch_ohlc
-from src.indicators import add_indicators
-from src.strategy import detect_double_top_sell, detect_double_bottom_buy
-from src.signal_logic import evaluate_signal
-from src.telegram_bot import send_telegram
+import os
+import sys
 
+print("=" * 60)
+print("🔍 DIAGNOSTIC MODE")
+print("=" * 60)
 
-def main():
-    print("=" * 60)
-    print("🔬 GoldPro V2 — Strategy Diagnostic")
-    print("=" * 60)
+print("\n📍 Current working directory:")
+print("  ", os.getcwd())
 
-    lines = ["🔬 <b>GoldPro V2 — Diagnostic</b>"]
+print("\n📁 Files in current dir:")
+for f in sorted(os.listdir(".")):
+    print("  -", f)
 
-    for tf in TIMEFRAMES:
-        print(f"\n{'─' * 60}")
-        print(f"📊 Timeframe: {tf}")
-        print(f"{'─' * 60}")
+print("\n📁 Files in src/:")
+for f in sorted(os.listdir("src")):
+    print("  -", f)
 
-        try:
-            df = fetch_ohlc(tf)
-            df = add_indicators(df)
+print("\n📄 Content of src/config.py (first 800 chars):")
+with open("src/config.py", "r", encoding="utf-8") as fh:
+    content = fh.read()
+    print(content[:800])
+    print("  ...")
+    print(f"\n📏 Total length: {len(content)} chars")
 
-            rsi = df["rsi"].iloc[:-1]
-            last_rsi = float(rsi.iloc[-1])
+print("\n🔎 Searching for TIMEFRAMES in src/config.py:")
+with open("src/config.py", "r", encoding="utf-8") as fh:
+    for i, line in enumerate(fh, 1):
+        if "TIMEFRAMES" in line:
+            print(f"  Line {i}: {line.rstrip()}")
 
-            print(f"آخرین 10 RSI: {rsi.tail(10).round(1).tolist()}")
-            print(f"RSI فعلی: {last_rsi:.1f}")
+print("\n🐍 Trying to import src.config:")
+try:
+    import importlib
+    import src.config as cfg
+    importlib.reload(cfg)
+    print("  ✅ Import successful")
+    print("  File:", cfg.__file__)
+    print("  Has TIMEFRAMES:", hasattr(cfg, "TIMEFRAMES"))
+    if hasattr(cfg, "TIMEFRAMES"):
+        print("  Value:", cfg.TIMEFRAMES)
+    print("  All public attrs:", [x for x in dir(cfg) if not x.startswith("_")])
+except Exception as e:
+    print(f"  ❌ Import failed: {e}")
 
-            sell_setup = detect_double_top_sell(rsi)
-            buy_setup = detect_double_bottom_buy(rsi)
-            signal = evaluate_signal(df, timeframe=tf)
-
-            lines.append(f"\n📊 <b>{tf}</b>")
-            lines.append(f"RSI: {last_rsi:.1f}")
-            lines.append(f"SELL setup: {'✅' if sell_setup else '❌'}")
-            lines.append(f"BUY setup: {'✅' if buy_setup else '❌'}")
-            lines.append(f"Signal: {signal['side'] if signal else 'NO'}")
-
-            print(f"SELL setup: {sell_setup}")
-            print(f"BUY setup: {buy_setup}")
-            print(f"Signal: {signal}")
-
-        except Exception as e:
-            print(f"❌ Error in {tf}: {e}")
-            lines.append(f"\n📊 <b>{tf}</b>\n❌ Error: {e}")
-
-    print("\n📨 Sending diagnostic report to Telegram...")
-    send_telegram("\n".join(lines))
-    print("✅ Done")
-
-
-if __name__ == "__main__":
-    main()
+print("\n" + "=" * 60)
