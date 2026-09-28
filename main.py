@@ -5,11 +5,9 @@ from src.signal_logic import evaluate_signal
 from src.telegram_bot import send_telegram, format_message
 
 
-# ── اگر Gist فعال باشه، از state_manager استفاده می‌کنیم ──
 if USE_GIST:
     from src.state_manager import load_state, save_state, should_send, mark_sent
 else:
-    # نسخه ساده بدون persistence
     def load_state():
         return {}
 
@@ -24,7 +22,6 @@ else:
 
 
 def process_timeframe(tf, state):
-    """پردازش یک تایم‌فریم"""
     print(f"\n🔍 Analyzing {tf}...")
 
     df = fetch_ohlc(tf)
