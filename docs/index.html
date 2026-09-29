@@ -18,14 +18,9 @@
   }
   .container { max-width: 1100px; margin: 0 auto; }
 
-  header {
-    text-align: center;
-    padding: 30px 0;
-    margin-bottom: 20px;
-  }
+  header { text-align: center; padding: 30px 0; margin-bottom: 20px; }
   h1 {
-    font-size: 2.5rem;
-    font-weight: 800;
+    font-size: 2.5rem; font-weight: 800;
     background: linear-gradient(135deg, #ffd700, #f5b041, #ffed4e);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -33,16 +28,12 @@
     margin-bottom: 8px;
   }
   .subtitle { color: #8892b0; font-size: 0.95rem; }
-
   .status-bar {
-    display: inline-block;
-    padding: 6px 16px;
+    display: inline-block; padding: 6px 16px;
     background: rgba(0, 255, 100, 0.1);
     color: #4ade80;
     border: 1px solid rgba(74, 222, 128, 0.3);
-    border-radius: 999px;
-    font-size: 0.85rem;
-    margin-top: 12px;
+    border-radius: 999px; font-size: 0.85rem; margin-top: 12px;
   }
   .status-bar.error {
     background: rgba(255, 80, 80, 0.1);
@@ -53,17 +44,13 @@
   .stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 14px;
-    margin-bottom: 24px;
+    gap: 14px; margin-bottom: 24px;
   }
   .stat {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 215, 0, 0.15);
-    border-radius: 14px;
-    padding: 20px;
-    text-align: center;
-    transition: all 0.3s;
-    backdrop-filter: blur(10px);
+    border-radius: 14px; padding: 20px; text-align: center;
+    transition: all 0.3s; backdrop-filter: blur(10px);
   }
   .stat:hover {
     transform: translateY(-3px);
@@ -71,31 +58,22 @@
     box-shadow: 0 10px 30px rgba(255, 215, 0, 0.1);
   }
   .stat-value {
-    font-size: 2rem;
-    font-weight: 800;
-    color: #ffd700;
-    line-height: 1;
-    margin-bottom: 6px;
+    font-size: 2rem; font-weight: 800; color: #ffd700;
+    line-height: 1; margin-bottom: 6px;
   }
   .stat-value.buy { color: #4ade80; }
   .stat-value.sell { color: #f87171; }
-  .stat-label {
-    font-size: 0.85rem;
-    color: #8892b0;
-  }
+  .stat-value.small { font-size: 1.4rem; }
+  .stat-label { font-size: 0.85rem; color: #8892b0; }
 
   .card {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 215, 0, 0.15);
-    border-radius: 16px;
-    padding: 24px;
-    margin-bottom: 20px;
+    border-radius: 16px; padding: 24px; margin-bottom: 20px;
     backdrop-filter: blur(10px);
   }
   .card h2 {
-    font-size: 1.2rem;
-    color: #ffd700;
-    margin-bottom: 16px;
+    font-size: 1.2rem; color: #ffd700; margin-bottom: 16px;
     padding-bottom: 12px;
     border-bottom: 1px solid rgba(255, 215, 0, 0.15);
   }
@@ -103,96 +81,206 @@
   .charts {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 20px;
-    margin-bottom: 20px;
+    gap: 20px; margin-bottom: 20px;
   }
   .chart-box {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 215, 0, 0.15);
-    border-radius: 16px;
-    padding: 20px;
+    border-radius: 16px; padding: 20px;
     backdrop-filter: blur(10px);
   }
   .chart-box h3 {
-    font-size: 1rem;
-    color: #b8c1d9;
-    margin-bottom: 16px;
-    text-align: center;
+    font-size: 1rem; color: #b8c1d9;
+    margin-bottom: 16px; text-align: center;
   }
-  .chart-wrap {
-    position: relative;
-    height: 220px;
-  }
+  .chart-wrap { position: relative; height: 220px; }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.9rem;
-  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
   th, td {
-    padding: 12px 10px;
-    text-align: right;
+    padding: 12px 10px; text-align: right;
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   }
   th {
-    color: #8892b0;
-    font-weight: 600;
-    font-size: 0.8rem;
-    text-transform: uppercase;
+    color: #8892b0; font-weight: 600;
+    font-size: 0.8rem; text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  tr:hover { background: rgba(255, 215, 0, 0.03); }
+  tbody tr { cursor: pointer; transition: background 0.15s; }
+  tbody tr:hover { background: rgba(255, 215, 0, 0.06); }
 
   .badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 700;
+    display: inline-block; padding: 3px 10px;
+    border-radius: 6px; font-size: 0.75rem; font-weight: 700;
   }
   .badge.buy {
-    background: rgba(74, 222, 128, 0.15);
-    color: #4ade80;
+    background: rgba(74, 222, 128, 0.15); color: #4ade80;
     border: 1px solid rgba(74, 222, 128, 0.3);
   }
   .badge.sell {
-    background: rgba(248, 113, 113, 0.15);
-    color: #f87171;
+    background: rgba(248, 113, 113, 0.15); color: #f87171;
     border: 1px solid rgba(248, 113, 113, 0.3);
   }
   .badge.tf {
-    background: rgba(139, 92, 246, 0.15);
-    color: #a78bfa;
+    background: rgba(139, 92, 246, 0.15); color: #a78bfa;
     border: 1px solid rgba(139, 92, 246, 0.3);
   }
 
   .empty {
-    text-align: center;
-    padding: 40px 20px;
-    color: #8892b0;
-    font-size: 0.95rem;
+    text-align: center; padding: 40px 20px;
+    color: #8892b0; font-size: 0.95rem;
   }
-
   footer {
-    text-align: center;
-    padding: 30px 0;
-    color: #4a5578;
-    font-size: 0.85rem;
+    text-align: center; padding: 30px 0;
+    color: #4a5578; font-size: 0.85rem;
   }
-
   .refresh-btn {
     background: rgba(255, 215, 0, 0.1);
     border: 1px solid rgba(255, 215, 0, 0.3);
-    color: #ffd700;
-    padding: 8px 20px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 0.9rem;
+    color: #ffd700; padding: 8px 20px;
+    border-radius: 8px; cursor: pointer;
+    font-family: inherit; font-size: 0.9rem;
     transition: all 0.2s;
   }
-  .refresh-btn:hover {
-    background: rgba(255, 215, 0, 0.2);
+  .refresh-btn:hover { background: rgba(255, 215, 0, 0.2); }
+
+  /* ===== Modal ===== */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(6px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    padding: 20px;
+    animation: fadeIn 0.2s;
+  }
+  .modal-overlay.active { display: flex; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slideUp {
+    from { transform: translateY(30px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .modal {
+    background: linear-gradient(135deg, #141a2e 0%, #1a1f35 100%);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 20px;
+    max-width: 520px; width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 28px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+    animation: slideUp 0.3s;
+    position: relative;
+  }
+  .modal-close {
+    position: absolute; top: 16px; left: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e8ecf5; width: 36px; height: 36px;
+    border-radius: 50%; cursor: pointer;
+    font-size: 1.2rem; display: flex;
+    align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .modal-close:hover {
+    background: rgba(255, 80, 80, 0.2);
+    border-color: rgba(248, 113, 113, 0.5);
+  }
+
+  .modal-header {
+    text-align: center; margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.15);
+  }
+  .modal-header .badge {
+    font-size: 1rem; padding: 6px 18px;
+    margin-bottom: 12px;
+  }
+  .modal-header h3 {
+    font-size: 1.3rem; color: #ffd700;
+    margin-bottom: 6px;
+  }
+  .modal-header .time {
+    color: #8892b0; font-size: 0.9rem;
+  }
+
+  .modal-section {
+    margin-bottom: 20px;
+  }
+  .modal-section h4 {
+    font-size: 0.85rem; color: #8892b0;
+    text-transform: uppercase; letter-spacing: 1px;
+    margin-bottom: 12px; font-weight: 600;
+  }
+
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .price-item {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .price-item .label {
+    font-size: 0.75rem; color: #8892b0;
+    margin-bottom: 6px;
+  }
+  .price-item .value {
+    font-size: 1.1rem; font-weight: 800;
+  }
+  .price-item.entry .value { color: #ffd700; }
+  .price-item.sl .value { color: #f87171; }
+  .price-item.tp .value { color: #4ade80; }
+
+  .indicator-list {
+    display: flex; flex-direction: column;
+    gap: 10px;
+  }
+  .indicator-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .indicator-row .name {
+    color: #b8c1d9; font-size: 0.9rem;
+  }
+  .indicator-row .val {
+    font-weight: 700; color: #ffd700;
+    font-size: 1rem;
+  }
+  .indicator-row .val.good { color: #4ade80; }
+  .indicator-row .val.bad { color: #f87171; }
+
+  .risk-info {
+    background: rgba(255, 215, 0, 0.05);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    border-radius: 12px;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .risk-info .item .label {
+    font-size: 0.75rem; color: #8892b0;
+    margin-bottom: 4px;
+  }
+  .risk-info .item .value {
+    font-size: 1rem; font-weight: 700;
+    color: #ffd700;
   }
 
   @media (max-width: 600px) {
@@ -200,6 +288,8 @@
     .stat-value { font-size: 1.5rem; }
     th, td { padding: 10px 6px; font-size: 0.8rem; }
     .hide-mobile { display: none; }
+    .price-grid { grid-template-columns: 1fr; }
+    .modal { padding: 22px; }
   }
 </style>
 </head>
@@ -225,8 +315,27 @@
       <div class="stat-label">🔴 فروش (SELL)</div>
     </div>
     <div class="stat">
-      <div class="stat-value" id="last-time" style="font-size:1.1rem; padding-top:10px;">-</div>
+      <div class="stat-value small" id="last-time">-</div>
       <div class="stat-label">آخرین سیگنال</div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value small" id="avg-rsi">-</div>
+      <div class="stat-label">میانگین RSI</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value small" id="avg-adx">-</div>
+      <div class="stat-label">میانگین ADX</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value small" id="avg-atr">-</div>
+      <div class="stat-label">میانگین ATR</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value small" id="top-tf">-</div>
+      <div class="stat-label">تایم‌فریم برتر</div>
     </div>
   </div>
 
@@ -242,10 +351,13 @@
   </div>
 
   <div class="card">
-    <h2 style="display:flex; justify-content:space-between; align-items:center;">
+    <h2 style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       📋 سیگنال‌های اخیر
       <button class="refresh-btn" onclick="loadData()">🔄 بروزرسانی</button>
     </h2>
+    <p style="color:#8892b0; font-size:0.85rem; margin-bottom:16px;">
+      💡 روی هر ردیف کلیک کن تا جزئیات کامل رو ببینی
+    </p>
     <div id="table-wrap">
       <div class="empty">⏳ در حال بارگذاری...</div>
     </div>
@@ -257,14 +369,29 @@
   </footer>
 </div>
 
+<!-- Modal -->
+<div class="modal-overlay" id="modal" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
 <script>
 const GIST_URL = "https://gist.githubusercontent.com/teachdiagram-create/da4184ca28cfa99438719f3e331c08b3/raw/goldpro-state.json";
 
 let sideChart = null;
 let tfChart = null;
+let currentHistory = [];
 
-function formatTime(iso) {
+function formatTime(iso, full = false) {
   const d = new Date(iso + "Z");
+  if (full) {
+    return d.toLocaleString("fa-IR", {
+      weekday: "long", year: "numeric", month: "long", day: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+  }
   return d.toLocaleString("fa-IR", {
     month: "short", day: "numeric",
     hour: "2-digit", minute: "2-digit"
@@ -284,10 +411,9 @@ async function loadData() {
     const res = await fetch(GIST_URL + "?t=" + Date.now());
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
-
     const history = data.history || [];
+    currentHistory = history;
 
-    // Stats
     const buyCount = history.filter(h => h.side === "BUY").length;
     const sellCount = history.filter(h => h.side === "SELL").length;
 
@@ -301,10 +427,31 @@ async function loadData() {
       document.getElementById("last-time").textContent = "—";
     }
 
-    // Charts
-    renderCharts(history, buyCount, sellCount);
+    // Averages
+    if (history.length > 0) {
+      const rsis = history.filter(h => h.rsi).map(h => h.rsi);
+      const adxs = history.filter(h => h.adx).map(h => h.adx);
+      const atrs = history.filter(h => h.atr).map(h => h.atr);
 
-    // Table
+      document.getElementById("avg-rsi").textContent =
+        rsis.length ? (rsis.reduce((a,b)=>a+b,0) / rsis.length).toFixed(1) : "—";
+      document.getElementById("avg-adx").textContent =
+        adxs.length ? (adxs.reduce((a,b)=>a+b,0) / adxs.length).toFixed(1) : "—";
+      document.getElementById("avg-atr").textContent =
+        atrs.length ? (atrs.reduce((a,b)=>a+b,0) / atrs.length).toFixed(2) : "—";
+
+      // Top timeframe
+      const tfCounts = {};
+      history.forEach(h => { tfCounts[h.timeframe] = (tfCounts[h.timeframe] || 0) + 1; });
+      const topTf = Object.keys(tfCounts).sort((a,b) => tfCounts[b] - tfCounts[a])[0];
+      document.getElementById("top-tf").textContent = topTf || "—";
+    } else {
+      ["avg-rsi", "avg-adx", "avg-atr", "top-tf"].forEach(id =>
+        document.getElementById(id).textContent = "—"
+      );
+    }
+
+    renderCharts(history, buyCount, sellCount);
     renderTable(history);
 
     setStatus("✅ متصل — " + history.length + " سیگنال");
@@ -321,7 +468,6 @@ async function loadData() {
 function renderCharts(history, buy, sell) {
   const gold = "#ffd700";
 
-  // Side chart
   if (sideChart) sideChart.destroy();
   const sideCtx = document.getElementById("sideChart").getContext("2d");
   sideChart = new Chart(sideCtx, {
@@ -336,8 +482,7 @@ function renderCharts(history, buy, sell) {
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: {
           position: "bottom",
@@ -348,7 +493,6 @@ function renderCharts(history, buy, sell) {
     }
   });
 
-  // Timeframe chart
   const tfCounts = {};
   history.forEach(h => { tfCounts[h.timeframe] = (tfCounts[h.timeframe] || 0) + 1; });
 
@@ -361,14 +505,11 @@ function renderCharts(history, buy, sell) {
       datasets: [{
         data: Object.values(tfCounts),
         backgroundColor: "rgba(255, 215, 0, 0.6)",
-        borderColor: gold,
-        borderWidth: 2,
-        borderRadius: 8,
+        borderColor: gold, borderWidth: 2, borderRadius: 8,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
         x: { ticks: { color: "#b8c1d9", font: { family: "Vazirmatn" } }, grid: { display: false } },
@@ -386,21 +527,16 @@ function renderTable(history) {
   }
 
   let html = '<table><thead><tr>' +
-    '<th>زمان</th>' +
-    '<th>نوع</th>' +
-    '<th>تایم‌فریم</th>' +
-    '<th>ورود</th>' +
-    '<th class="hide-mobile">SL</th>' +
-    '<th class="hide-mobile">TP</th>' +
-    '<th class="hide-mobile">RSI</th>' +
-    '</tr></thead><tbody>';
+    '<th>زمان</th><th>نوع</th><th>تایم‌فریم</th><th>ورود</th>' +
+    '<th class="hide-mobile">SL</th><th class="hide-mobile">TP</th>' +
+    '<th class="hide-mobile">RSI</th></tr></thead><tbody>';
 
-  history.slice(0, 50).forEach(h => {
+  history.slice(0, 50).forEach((h, idx) => {
     const badge = h.side === "BUY"
       ? '<span class="badge buy">🟢 BUY</span>'
       : '<span class="badge sell">🔴 SELL</span>';
 
-    html += '<tr>' +
+    html += `<tr onclick="openModal(${idx})">` +
       '<td>' + formatTime(h.sent_at) + '</td>' +
       '<td>' + badge + '</td>' +
       '<td><span class="badge tf">' + h.timeframe + '</span></td>' +
@@ -415,9 +551,109 @@ function renderTable(history) {
   document.getElementById("table-wrap").innerHTML = html;
 }
 
-// Load on start + auto refresh
-loadData();
-setInterval(loadData, 60000);
-</script>
-</body>
-</html>
+function openModal(idx) {
+  const h = currentHistory[idx];
+  if (!h) return;
+
+  const isBuy = h.side === "BUY";
+  const badge = isBuy
+    ? '<span class="badge buy">🟢 BUY</span>'
+    : '<span class="badge sell">🔴 SELL</span>';
+
+  // محاسبه ریسک/ریوارد
+  let riskReward = "—";
+  let slDist = "—", tpDist = "—";
+  if (h.entry && h.sl && h.tp) {
+    const risk = Math.abs(h.entry - h.sl);
+    const reward = Math.abs(h.tp - h.entry);
+    if (risk > 0) {
+      riskReward = "1 : " + (reward / risk).toFixed(2);
+      slDist = risk.toFixed(2);
+      tpDist = reward.toFixed(2);
+    }
+  }
+
+  // رنگ‌بندی RSI
+  let rsiClass = "";
+  if (h.rsi) {
+    if (h.rsi > 70) rsiClass = "bad";
+    else if (h.rsi < 30) rsiClass = "good";
+  }
+
+  // رنگ‌بندی ADX
+  let adxClass = "";
+  if (h.adx) {
+    if (h.adx > 25) adxClass = "good";
+    else if (h.adx < 15) adxClass = "bad";
+  }
+
+  const html = `
+    <div class="modal-header">
+      ${badge}
+      <h3>Gold ${h.side}</h3>
+      <div class="time">⏰ ${formatTime(h.sent_at, true)}</div>
+    </div>
+
+    <div class="modal-section">
+      <h4>💰 قیمت‌ها</h4>
+      <div class="price-grid">
+        <div class="price-item entry">
+          <div class="label">💵 ورود</div>
+          <div class="value">${h.entry || "—"}</div>
+        </div>
+        <div class="price-item sl">
+          <div class="label">🛑 حد ضرر</div>
+          <div class="value">${h.sl || "—"}</div>
+        </div>
+        <div class="price-item tp">
+          <div class="label">🎯 حد سود</div>
+          <div class="value">${h.tp || "—"}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h4>📊 نسبت ریسک به ریوارد</h4>
+      <div class="risk-info">
+        <div class="item">
+          <div class="label">R:R</div>
+          <div class="value">${riskReward}</div>
+        </div>
+        <div class="item">
+          <div class="label">فاصله SL / TP</div>
+          <div class="value">${slDist} / ${tpDist}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <h4>📈 اندیکاتورها</h4>
+      <div class="indicator-list">
+        <div class="indicator-row">
+          <span class="name">⏱ تایم‌فریم</span>
+          <span class="val">${h.timeframe || "—"}</span>
+        </div>
+        <div class="indicator-row">
+          <span class="name">📊 RSI (14)</span>
+          <span class="val ${rsiClass}">${h.rsi || "—"}</span>
+        </div>
+        <div class="indicator-row">
+          <span class="name">📉 ADX (14)</span>
+          <span class="val ${adxClass}">${h.adx || "—"}</span>
+        </div>
+        <div class="indicator-row">
+          <span class="name">📈 ATR (14)</span>
+          <span class="val">${h.atr || "—"}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("modal-content").innerHTML = html;
+  document.getElementById("modal").classList.add("active");
+  document.body.style.overflow = "hidden";
+}
+
+function closeModal(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById("modal").cl
