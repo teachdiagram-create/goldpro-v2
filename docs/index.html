@@ -143,7 +143,6 @@
   }
   .refresh-btn:hover { background: rgba(255, 215, 0, 0.2); }
 
-  /* ===== Modal ===== */
   .modal-overlay {
     position: fixed; top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0, 0, 0, 0.75);
@@ -157,10 +156,7 @@
   }
   .modal-overlay.active { display: flex; }
 
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   @keyframes slideUp {
     from { transform: translateY(30px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
@@ -210,9 +206,7 @@
     color: #8892b0; font-size: 0.9rem;
   }
 
-  .modal-section {
-    margin-bottom: 20px;
-  }
+  .modal-section { margin-bottom: 20px; }
   .modal-section h4 {
     font-size: 0.85rem; color: #8892b0;
     text-transform: uppercase; letter-spacing: 1px;
@@ -369,16 +363,15 @@
   </footer>
 </div>
 
-<!-- Modal -->
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
   <div class="modal" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div id="modal-content"></div>
   </div>
 </div>
-
 <script>
-const GIST_URL = "https://gist.githubusercontent.com/teachdiagram-create/da4184ca28cfa99438719f3e331c08b3/raw/goldpro-state.json";
+const GIST_ID = "da4184ca28cfa99438719f3e331c08b3";
+const GIST_API = "https://api.github.com/gists/" + GIST_ID;
 
 let sideChart = null;
 let tfChart = null;
@@ -408,9 +401,22 @@ async function loadData() {
   setStatus("⏳ در حال بارگذاری...");
 
   try {
-    const res = await fetch(GIST_URL + "?t=" + Date.now());
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
+    const res = await fetch(GIST_API, {
+      headers: { "Accept": "application/vnd.github+json" }
+    });
+    if (!res.ok) throw new Error("Gist API HTTP " + res.status);
+    const gistData = await res.json();
+
+    const files = gistData.files || {};
+    const stateFile = files["goldpro-state.json"];
+    if (!stateFile) throw new Error("goldpro-state.json not found");
+
+    const rawContent = stateFile.content;
+    if (!rawContent || !rawContent.trim()) {
+      throw new Error("gist content is empty");
+    }
+
+    const data = JSON.parse(rawContent);
     const history = data.history || [];
     currentHistory = history;
 
@@ -427,7 +433,6 @@ async function loadData() {
       document.getElementById("last-time").textContent = "—";
     }
 
-    // Averages
     if (history.length > 0) {
       const rsis = history.filter(h => h.rsi).map(h => h.rsi);
       const adxs = history.filter(h => h.adx).map(h => h.adx);
@@ -440,7 +445,6 @@ async function loadData() {
       document.getElementById("avg-atr").textContent =
         atrs.length ? (atrs.reduce((a,b)=>a+b,0) / atrs.length).toFixed(2) : "—";
 
-      // Top timeframe
       const tfCounts = {};
       history.forEach(h => { tfCounts[h.timeframe] = (tfCounts[h.timeframe] || 0) + 1; });
       const topTf = Object.keys(tfCounts).sort((a,b) => tfCounts[b] - tfCounts[a])[0];
@@ -459,9 +463,10 @@ async function loadData() {
       "آخرین بروزرسانی: " + new Date().toLocaleTimeString("fa-IR");
 
   } catch (err) {
-    setStatus("❌ خطا در اتصال: " + err.message, true);
+    console.error(err);
+    setStatus("❌ خطا: " + err.message, true);
     document.getElementById("table-wrap").innerHTML =
-      '<div class="empty">❌ خطا در دریافت داده</div>';
+      '<div class="empty">❌ خطا در دریافت داده<br><small>' + err.message + '</small></div>';
   }
 }
 
@@ -560,7 +565,6 @@ function openModal(idx) {
     ? '<span class="badge buy">🟢 BUY</span>'
     : '<span class="badge sell">🔴 SELL</span>';
 
-  // محاسبه ریسک/ریوارد
   let riskReward = "—";
   let slDist = "—", tpDist = "—";
   if (h.entry && h.sl && h.tp) {
@@ -573,14 +577,12 @@ function openModal(idx) {
     }
   }
 
-  // رنگ‌بندی RSI
   let rsiClass = "";
   if (h.rsi) {
     if (h.rsi > 70) rsiClass = "bad";
     else if (h.rsi < 30) rsiClass = "good";
   }
 
-  // رنگ‌بندی ADX
   let adxClass = "";
   if (h.adx) {
     if (h.adx > 25) adxClass = "good";
@@ -656,4 +658,16 @@ function openModal(idx) {
 
 function closeModal(e) {
   if (e && e.target !== e.currentTarget) return;
-  document.getElementById("modal").cl
+  document.getElementById("modal").classList.remove("active");
+  document.body.style.overflow = "";
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeModal();
+});
+
+loadData();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
