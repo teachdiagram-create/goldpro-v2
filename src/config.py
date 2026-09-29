@@ -44,3 +44,6 @@ TP_ATR_MULT = 1.5
 SIGNAL_COOLDOWN_MIN = 60
 
 STATE_FILE = "state.json"
+
+# ==== Dashboard ====
+DASHBOARD_URL = "https://teachdiagram-create.github.io/goldpro-v2/"
