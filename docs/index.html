@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoldPro V2 — داشبورد</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Vazirmatn', sans-serif;
+    background: linear-gradient(135deg, #0a0e1a 0%, #1a1f35 100%);
+    color: #e8ecf5;
+    min-height: 100vh;
+    padding: 20px;
+    line-height: 1.7;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  header {
+    text-align: center;
+    padding: 30px 0;
+    margin-bottom: 20px;
+  }
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ffd700, #f5b041, #ffed4e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  .subtitle { color: #8892b0; font-size: 0.95rem; }
+
+  .status-bar {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(0, 255, 100, 0.1);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    margin-top: 12px;
+  }
+  .status-bar.error {
+    background: rgba(255, 80, 80, 0.1);
+    color: #f87171;
+    border-color: rgba(248, 113, 113, 0.3);
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .stat {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 215, 0, 0.15);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s;
+    backdrop-filter: blur(10px);
+  }
+  .stat:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255, 215, 0, 0.4);
+    box-shadow: 0 10px 30px rgba(255, 215, 0, 0.1);
+  }
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: #ffd700;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .stat-value.buy { color: #4ade80; }
+  .stat-value.sell { color: #f87171; }
+  .stat-label {
+    font-size: 0.85rem;
+    color: #8892b0;
+  }
+
+  .card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 215, 0, 0.15);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 20px;
+    backdrop-filter: blur(10px);
+  }
+  .card h2 {
+    font-size: 1.2rem;
+    color: #ffd700;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.15);
+  }
+
+  .charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+  }
+  .chart-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 215, 0, 0.15);
+    border-radius: 16px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+  }
+  .chart-box h3 {
+    font-size: 1rem;
+    color: #b8c1d9;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .chart-wrap {
+    position: relative;
+    height: 220px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  th, td {
+    padding: 12px 10px;
+    text-align: right;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  th {
+    color: #8892b0;
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  tr:hover { background: rgba(255, 215, 0, 0.03); }
+
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  .badge.buy {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+  }
+  .badge.sell {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+  }
+  .badge.tf {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+  }
+
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #8892b0;
+    font-size: 0.95rem;
+  }
+
+  footer {
+    text-align: center;
+    padding: 30px 0;
+    color: #4a5578;
+    font-size: 0.85rem;
+  }
+
+  .refresh-btn {
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    color: #ffd700;
+    padding: 8px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .refresh-btn:hover {
+    background: rgba(255, 215, 0, 0.2);
+  }
+
+  @media (max-width: 600px) {
+    h1 { font-size: 1.8rem; }
+    .stat-value { font-size: 1.5rem; }
+    th, td { padding: 10px 6px; font-size: 0.8rem; }
+    .hide-mobile { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🥇 GoldPro V2</h1>
+    <div class="subtitle">داشبورد سیگنال‌های معاملاتی XAU/USD</div>
+    <div id="status" class="status-bar">⏳ در حال بارگذاری...</div>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value" id="total">-</div>
+      <div class="stat-label">کل سیگنال‌ها</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value buy" id="buy-count">-</div>
+      <div class="stat-label">🟢 خرید (BUY)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value sell" id="sell-count">-</div>
+      <div class="stat-label">🔴 فروش (SELL)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="last-time" style="font-size:1.1rem; padding-top:10px;">-</div>
+      <div class="stat-label">آخرین سیگنال</div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="chart-box">
+      <h3>🟢🔴 توزیع جهت</h3>
+      <div class="chart-wrap"><canvas id="sideChart"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <h3>⏱️ توزیع تایم‌فریم</h3>
+      <div class="chart-wrap"><canvas id="tfChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="display:flex; justify-content:space-between; align-items:center;">
+      📋 سیگنال‌های اخیر
+      <button class="refresh-btn" onclick="loadData()">🔄 بروزرسانی</button>
+    </h2>
+    <div id="table-wrap">
+      <div class="empty">⏳ در حال بارگذاری...</div>
+    </div>
+  </div>
+
+  <footer>
+    GoldPro V2 • به‌روزرسانی خودکار هر ۶۰ ثانیه
+    <div id="updated" style="margin-top:8px; opacity:0.6;"></div>
+  </footer>
+</div>
+
+<script>
+const GIST_URL = "https://gist.githubusercontent.com/teachdiagram-create/da4184ca28cfa99438719f3e331c08b3/raw/goldpro-state.json";
+
+let sideChart = null;
+let tfChart = null;
+
+function formatTime(iso) {
+  const d = new Date(iso + "Z");
+  return d.toLocaleString("fa-IR", {
+    month: "short", day: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+}
+
+function setStatus(text, isError = false) {
+  const el = document.getElementById("status");
+  el.textContent = text;
+  el.className = "status-bar" + (isError ? " error" : "");
+}
+
+async function loadData() {
+  setStatus("⏳ در حال بارگذاری...");
+
+  try {
+    const res = await fetch(GIST_URL + "?t=" + Date.now());
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+
+    const history = data.history || [];
+
+    // Stats
+    const buyCount = history.filter(h => h.side === "BUY").length;
+    const sellCount = history.filter(h => h.side === "SELL").length;
+
+    document.getElementById("total").textContent = history.length;
+    document.getElementById("buy-count").textContent = buyCount;
+    document.getElementById("sell-count").textContent = sellCount;
+
+    if (history.length > 0) {
+      document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
+    } else {
+      document.getElementById("last-time").textContent = "—";
+    }
+
+    // Charts
+    renderCharts(history, buyCount, sellCount);
+
+    // Table
+    renderTable(history);
+
+    setStatus("✅ متصل — " + history.length + " سیگنال");
+    document.getElementById("updated").textContent =
+      "آخرین بروزرسانی: " + new Date().toLocaleTimeString("fa-IR");
+
+  } catch (err) {
+    setStatus("❌ خطا در اتصال: " + err.message, true);
+    document.getElementById("table-wrap").innerHTML =
+      '<div class="empty">❌ خطا در دریافت داده</div>';
+  }
+}
+
+function renderCharts(history, buy, sell) {
+  const gold = "#ffd700";
+
+  // Side chart
+  if (sideChart) sideChart.destroy();
+  const sideCtx = document.getElementById("sideChart").getContext("2d");
+  sideChart = new Chart(sideCtx, {
+    type: "doughnut",
+    data: {
+      labels: ["خرید", "فروش"],
+      datasets: [{
+        data: [buy, sell],
+        backgroundColor: ["#4ade80", "#f87171"],
+        borderColor: "#0a0e1a",
+        borderWidth: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: "#e8ecf5", font: { family: "Vazirmatn", size: 13 }, padding: 14 }
+        }
+      },
+      cutout: "65%",
+    }
+  });
+
+  // Timeframe chart
+  const tfCounts = {};
+  history.forEach(h => { tfCounts[h.timeframe] = (tfCounts[h.timeframe] || 0) + 1; });
+
+  if (tfChart) tfChart.destroy();
+  const tfCtx = document.getElementById("tfChart").getContext("2d");
+  tfChart = new Chart(tfCtx, {
+    type: "bar",
+    data: {
+      labels: Object.keys(tfCounts).map(t => t.replace("min", " دقیقه")),
+      datasets: [{
+        data: Object.values(tfCounts),
+        backgroundColor: "rgba(255, 215, 0, 0.6)",
+        borderColor: gold,
+        borderWidth: 2,
+        borderRadius: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#b8c1d9", font: { family: "Vazirmatn" } }, grid: { display: false } },
+        y: { ticks: { color: "#b8c1d9", stepSize: 1 }, grid: { color: "rgba(255,255,255,0.05)" } }
+      }
+    }
+  });
+}
+
+function renderTable(history) {
+  if (history.length === 0) {
+    document.getElementById("table-wrap").innerHTML =
+      '<div class="empty">📭 هنوز هیچ سیگنالی ثبت نشده<br><small style="opacity:0.6;">بعد از اولین سیگنال، اینجا نمایش داده می‌شه</small></div>';
+    return;
+  }
+
+  let html = '<table><thead><tr>' +
+    '<th>زمان</th>' +
+    '<th>نوع</th>' +
+    '<th>تایم‌فریم</th>' +
+    '<th>ورود</th>' +
+    '<th class="hide-mobile">SL</th>' +
+    '<th class="hide-mobile">TP</th>' +
+    '<th class="hide-mobile">RSI</th>' +
+    '</tr></thead><tbody>';
+
+  history.slice(0, 50).forEach(h => {
+    const badge = h.side === "BUY"
+      ? '<span class="badge buy">🟢 BUY</span>'
+      : '<span class="badge sell">🔴 SELL</span>';
+
+    html += '<tr>' +
+      '<td>' + formatTime(h.sent_at) + '</td>' +
+      '<td>' + badge + '</td>' +
+      '<td><span class="badge tf">' + h.timeframe + '</span></td>' +
+      '<td style="color:#ffd700; font-weight:700;">' + (h.entry || "—") + '</td>' +
+      '<td class="hide-mobile" style="color:#f87171;">' + (h.sl || "—") + '</td>' +
+      '<td class="hide-mobile" style="color:#4ade80;">' + (h.tp || "—") + '</td>' +
+      '<td class="hide-mobile">' + (h.rsi || "—") + '</td>' +
+      '</tr>';
+  });
+
+  html += '</tbody></table>';
+  document.getElementById("table-wrap").innerHTML = html;
+}
+
+// Load on start + auto refresh
+loadData();
+setInterval(loadData, 60000);
+</script>
+</body>
+</html>
