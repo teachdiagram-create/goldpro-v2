@@ -96,18 +96,22 @@ def mark_sent(signal: dict, state: dict) -> dict:
         "sent_at": now,
         "entry": signal["entry"],
     }
-
-    # اضافه به history
-    state["history"].insert(0, {
-        "side": signal["side"],
-        "timeframe": tf,
-        "entry": signal["entry"],
-        "sl": signal.get("sl"),
-        "tp": signal.get("tp"),
-        "rsi": signal.get("rsi"),
-        "adx": signal.get("adx"),
-        "atr": signal.get("atr"),
-        "sent_at": now,
+# اضافه به history
+state["history"].insert(0, {
+    "side": signal["side"],
+    "timeframe": tf,
+    "entry": signal["entry"],
+    "sl": signal.get("sl"),
+    "tp": signal.get("tp"),
+    "rsi": signal.get("rsi"),
+    "adx": signal.get("adx"),
+    "atr": signal.get("atr"),
+    "sent_at": now,
+    "result": None,       # ← جدید
+    "exit_price": None,   # ← جدید
+    "exit_time": None,    # ← جدید
+    "pnl": None,          # ← جدید
+})
     })
 
     # فقط ۲۰۰ تای آخر
