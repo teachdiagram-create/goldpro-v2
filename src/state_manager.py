@@ -17,7 +17,7 @@ def _headers():
 
 
 def load_state() -> dict:
-    """خواندن state از Gist (با پشتیبانی از فرمت قدیمی)"""
+    """خواندن state از Gist"""
     try:
         r = requests.get(GIST_API, headers=_headers(), timeout=20)
         r.raise_for_status()
@@ -29,7 +29,6 @@ def load_state() -> dict:
         content = files["goldpro-state.json"].get("content", "{}")
         state = json.loads(content) if content.strip() else {}
 
-        # Backward compatibility
         if "last_signals" not in state:
             old = {k: v for k, v in state.items() if ":" in k}
             return {"last_signals": old, "history": []}
@@ -89,35 +88,32 @@ def mark_sent(signal: dict, state: dict) -> dict:
     state.setdefault("last_signals", {})
     state.setdefault("history", [])
 
-    # به‌روزرسانی آخرین سیگنال
     state["last_signals"][key] = {
         "side": signal["side"],
         "timeframe": tf,
         "sent_at": now,
         "entry": signal["entry"],
     }
-# اضافه به history
-state["history"].insert(0, {
-    "side": signal["side"],
-    "timeframe": tf,
-    "entry": signal["entry"],
-    "sl": signal.get("sl"),
-    "tp": signal.get("tp"),
-    "rsi": signal.get("rsi"),
-    "adx": signal.get("adx"),
-    "atr": signal.get("atr"),
-    "sent_at": now,
-    "result": None,       # ← جدید
-    "exit_price": None,   # ← جدید
-    "exit_time": None,    # ← جدید
-    "pnl": None,          # ← جدید
-})
-    })
 
-    # فقط ۲۰۰ تای آخر
+    new_trade = {
+        "side": signal["side"],
+        "timeframe": tf,
+        "entry": signal["entry"],
+        "sl": signal.get("sl"),
+        "tp": signal.get("tp"),
+        "rsi": signal.get("rsi"),
+        "adx": signal.get("adx"),
+        "atr": signal.get("atr"),
+        "sent_at": now,
+        "result": None,
+        "exit_price": None,
+        "exit_time": None,
+        "pnl": None,
+    }
+
+    state["history"].insert(0, new_trade)
     state["history"] = state["history"][:MAX_HISTORY]
 
-    # پاک‌سازی last_signals قدیمی (بیشتر از ۲۴ ساعت)
     cutoff = datetime.utcnow() - timedelta(hours=24)
     state["last_signals"] = {
         k: v for k, v in state["last_signals"].items()
