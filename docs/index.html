@@ -562,31 +562,37 @@ function initAudioContext() {
   return audioContext;
 }
 
+// صدای آلارم سیگنال — بلند + تکرار ۳ بار
 function playSignalAlarm() {
   try {
     const ctx = initAudioContext();
     const now = ctx.currentTime;
-    const beeps = [
-      { start: 0,   duration: 0.15, freq: 880 },
-      { start: 0.2, duration: 0.15, freq: 1100 },
-      { start: 0.4, duration: 0.25, freq: 1320 },
-    ];
-    beeps.forEach(beep => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = beep.freq;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(0, now + beep.start);
-      gain.gain.linearRampToValueAtTime(0.4, now + beep.start + 0.02);
-      gain.gain.linearRampToValueAtTime(0, now + beep.start + beep.duration);
-      osc.start(now + beep.start);
-      osc.stop(now + beep.start + beep.duration);
-    });
+
+    for (let round = 0; round < 3; round++) {
+      const offset = round * 0.8;
+      const beeps = [
+        { start: offset + 0,   duration: 0.15, freq: 880 },
+        { start: offset + 0.2, duration: 0.15, freq: 1100 },
+        { start: offset + 0.4, duration: 0.25, freq: 1320 },
+      ];
+      beeps.forEach(beep => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = beep.freq;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0, now + beep.start);
+        gain.gain.linearRampToValueAtTime(1.0, now + beep.start + 0.02);
+        gain.gain.linearRampToValueAtTime(0, now + beep.start + beep.duration);
+        osc.start(now + beep.start);
+        osc.stop(now + beep.start + beep.duration);
+      });
+    }
   } catch (e) { console.log('Sound failed:', e); }
 }
 
+// صدای پیروزی (WIN) — بلند
 function playWinAlarm() {
   try {
     const ctx = initAudioContext();
@@ -605,7 +611,7 @@ function playWinAlarm() {
       osc.frequency.value = note.freq;
       osc.type = 'triangle';
       gain.gain.setValueAtTime(0, now + note.start);
-      gain.gain.linearRampToValueAtTime(0.35, now + note.start + 0.03);
+      gain.gain.linearRampToValueAtTime(1.0, now + note.start + 0.03);
       gain.gain.exponentialRampToValueAtTime(0.001, now + note.start + 0.4);
       osc.start(now + note.start);
       osc.stop(now + note.start + 0.45);
@@ -614,11 +620,11 @@ function playWinAlarm() {
 }
 
 function vibrateSignal() {
-  if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+  if ('vibrate' in navigator) navigator.vibrate([300, 150, 300, 150, 300]);
 }
 
 function vibrateWin() {
-  if ('vibrate' in navigator) navigator.vibrate([100, 50, 100, 50, 100, 50, 300]);
+  if ('vibrate' in navigator) navigator.vibrate([150, 100, 150, 100, 150, 100, 400]);
 }
 
 function alertNewSignal() {
@@ -633,21 +639,17 @@ function alertWin() {
 
 async function initNotification() {
   const btn = document.getElementById('notify-btn');
-
   if (!('Notification' in window)) {
     btn.textContent = '❌ پشتیبانی نمی‌شه';
     btn.className = 'error';
     return;
   }
-
   if (Notification.permission === 'granted') {
     btn.textContent = '✅ فعاله';
     btn.className = 'success';
     return;
   }
-
   const permission = await Notification.requestPermission();
-
   if (permission === 'granted') {
     btn.textContent = '✅ فعال شد';
     btn.className = 'success';
@@ -675,7 +677,7 @@ function testSoundAndVibrate() {
     playSignalAlarm();
     vibrateSignal();
     btn.textContent = '✅ صدا و لرزش';
-    setTimeout(() => { btn.textContent = originalText; }, 1500);
+    setTimeout(() => { btn.textContent = originalText; }, 3500);
   } catch (e) {
     console.log('Test failed:', e);
     btn.textContent = '❌ خطا';
@@ -697,7 +699,7 @@ function showSignalNotification(signal) {
     icon: '/goldpro-v2/icon-192.svg',
     badge: '/goldpro-v2/icon-192.svg',
     tag: signal.sent_at,
-    vibrate: [200, 100, 200],
+    vibrate: [300, 150, 300],
     dir: 'rtl',
     lang: 'fa',
     requireInteraction: true,
@@ -733,7 +735,7 @@ async function checkForNewSignals(history) {
   if (lastSentAt > lastSeenTime) {
     const newSignals = history.filter(h => h.sent_at > lastSeenTime);
     newSignals.slice(0, 3).reverse().forEach((sig, i) => {
-      setTimeout(() => showSignalNotification(sig), i * 800);
+      setTimeout(() => showSignalNotification(sig), i * 1200);
     });
     localStorage.setItem('lastSignalTime', lastSentAt);
   }
@@ -742,7 +744,7 @@ async function checkForNewSignals(history) {
   const newWins = closedSignals.filter(h => h.closed_at && h.closed_at > lastWinKey);
   if (newWins.length > 0) {
     const latestWin = newWins[0];
-    setTimeout(() => showWinNotification(latestWin), 2000);
+    setTimeout(() => showWinNotification(latestWin), 4000);
     localStorage.setItem('lastWinTime', latestWin.closed_at);
   }
 }
