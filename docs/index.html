@@ -480,10 +480,6 @@ function getResultBadge(r) {
 
 function round2(n) { return Math.round(n * 100) / 100; }
 
-// ═══════════════════════════════════════
-//  Alarm Sound System
-// ═══════════════════════════════════════
-
 let audioContext = null;
 
 function initAudioContext() {
@@ -501,9 +497,9 @@ function playSignalAlarm() {
     const ctx = initAudioContext();
     const now = ctx.currentTime;
     const beeps = [
-      { start: 0,    duration: 0.15, freq: 880 },
-      { start: 0.2,  duration: 0.15, freq: 1100 },
-      { start: 0.4,  duration: 0.25, freq: 1320 },
+      { start: 0,   duration: 0.15, freq: 880 },
+      { start: 0.2, duration: 0.15, freq: 1100 },
+      { start: 0.4, duration: 0.25, freq: 1320 },
     ];
     beeps.forEach(beep => {
       const osc = ctx.createOscillator();
@@ -564,10 +560,6 @@ function alertWin() {
   playWinAlarm();
   vibrateWin();
 }
-
-// ═══════════════════════════════════════
-//  Notification System
-// ═══════════════════════════════════════
 
 async function requestNotificationPermission() {
   if (!('Notification' in window)) return false;
@@ -676,6 +668,7 @@ function addTestSoundButton() {
   };
   document.body.appendChild(btn);
 }
+
 async function loadData() {
   setStatus("⏳ در حال بارگذاری...");
   try {
@@ -994,6 +987,14 @@ function updateCountdown() {
 setInterval(updateClock, 1000);
 setInterval(updateCountdown, 1000);
 updateClock();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/goldpro-v2/sw.js', { scope: '/goldpro-v2/' })
+      .then(reg => console.log('✅ SW registered:', reg.scope))
+      .catch(err => console.log('❌ SW failed:', err));
+  });
+}
 
 addNotificationButton();
 addTestSoundButton();
