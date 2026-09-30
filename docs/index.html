@@ -296,6 +296,33 @@
   .risk-info .item .value {
     font-size: 1rem; font-weight: 700; color: #ffd700;
   }
+  .equity-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 215, 0, 0.15);
+  }
+  .equity-stat {
+    text-align: center;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  .equity-stat .label {
+    font-size: 0.75rem;
+    color: #8892b0;
+    margin-bottom: 4px;
+  }
+  .equity-stat .value {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #ffd700;
+  }
+  .equity-stat .value.pos { color: #4ade80; }
+  .equity-stat .value.neg { color: #f87171; }
   @media (max-width: 600px) {
     h1 { font-size: 1.8rem; }
     .stat-value { font-size: 1.4rem; }
@@ -304,33 +331,6 @@
     .price-grid { grid-template-columns: 1fr; }
     .modal { padding: 22px; }
   }
-.equity-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  margin-top: 20px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 215, 0, 0.15);
-}
-.equity-stat {
-  text-align: center;
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-.equity-stat .label {
-  font-size: 0.75rem;
-  color: #8892b0;
-  margin-bottom: 4px;
-}
-.equity-stat .value {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: #ffd700;
-}
-.equity-stat .value.pos { color: #4ade80; }
-.equity-stat .value.neg { color: #f87171; }
 </style>
 </head>
 <body>
@@ -402,13 +402,14 @@
       <div class="chart-wrap"><canvas id="tfChart"></canvas></div>
     </div>
   </div>
-<div class="card">
-  <h2>📈 روند رشد سرمایه (Equity Curve)</h2>
-  <div class="chart-wrap" style="height: 300px;">
-    <canvas id="equityChart"></canvas>
+
+  <div class="card">
+    <h2>📈 روند رشد سرمایه (Equity Curve)</h2>
+    <div class="chart-wrap" style="height: 300px;">
+      <canvas id="equityChart"></canvas>
+    </div>
+    <div class="equity-stats" id="equity-stats"></div>
   </div>
-  <div class="equity-stats" id="equity-stats"></div>
-</div>
 
   <div class="card">
     <h2 style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -471,6 +472,8 @@ function getResultBadge(r) {
   return '<span class="badge open">⏳ OPEN</span>';
 }
 
+function round2(n) { return Math.round(n * 100) / 100; }
+
 async function loadData() {
   setStatus("⏳ در حال بارگذاری...");
   try {
@@ -520,8 +523,8 @@ async function loadData() {
     }
 
     renderCharts(history, wins.length, losses.length, openTrades.length);
-renderEquityChart(history);
-renderTable(history);
+    renderEquityChart(history);
+    renderTable(history);
 
     setStatus("✅ متصل — " + history.length + " سیگنال");
     document.getElementById("updated").textContent =
@@ -587,38 +590,29 @@ function renderCharts(history, wins, losses, open) {
 }
 
 function renderEquityChart(history) {
-  // فقط معاملات بسته‌شده، به ترتیب زمانی (قدیمی → جدید)
   const closed = history
     .filter(h => h.result && h.pnl != null)
     .slice()
     .reverse();
 
   if (closed.length === 0) {
-    document.getElementById("equity-stats").innerHTML =
-      '<div style="text-align:center; color:#8892b0; padding:20px;">📭 هنوز معامله بسته‌شده‌ای نداریم</div>';
+    const el = document.getElementById("equity-stats");
+    if (el) el.innerHTML = '<div style="text-align:center; color:#8892b0; padding:20px;">📭 هنوز معامله بسته‌شده‌ای نداریم</div>';
     if (equityChart) equityChart.destroy();
     return;
   }
 
-  // محاسبه Equity از 0 شروع
   let cumulative = 0;
-  const labels = [];
+  const labels = ["شروع"];
   const equityData = [0];
-  const pnlColors = [];
-
-  labels.push("شروع");
-  pnlColors.push("#4ade80");
-
   let peak = 0;
   let maxDrawdown = 0;
-  let currentDD = 0;
 
-  closed.forEach((h, i) => {
+  closed.forEach(h => {
     cumulative += h.pnl;
     if (cumulative > peak) peak = cumulative;
-
-    currentDD = peak - cumulative;
-    if (currentDD > maxDrawdown) maxDrawdown = currentDD;
+    const dd = peak - cumulative;
+    if (dd > maxDrawdown) maxDrawdown = dd;
 
     const d = new Date(h.sent_at + "Z");
     const label = d.toLocaleString("fa-IR", {
@@ -629,11 +623,8 @@ function renderEquityChart(history) {
     equityData.push(round2(cumulative));
   });
 
-  // رسم
   if (equityChart) equityChart.destroy();
   const ctx = document.getElementById("equityChart").getContext("2d");
-
-  // گرادیانت
   const gradient = ctx.createLinearGradient(0, 0, 0, 300);
   gradient.addColorStop(0, "rgba(74, 222, 128, 0.4)");
   gradient.addColorStop(1, "rgba(74, 222, 128, 0.0)");
@@ -697,10 +688,6 @@ function renderEquityChart(history) {
     }
   });
 
-  // آمار
-  const totalWin = closed.filter(h => h.pnl > 0).length;
-  const totalLoss = closed.filter(h => h.pnl < 0).length;
-
   const statsHtml = `
     <div class="equity-stat">
       <div class="label">💰 سود کل</div>
@@ -721,10 +708,6 @@ function renderEquityChart(history) {
   `;
 
   document.getElementById("equity-stats").innerHTML = statsHtml;
-}
-
-function round2(n) {
-  return Math.round(n * 100) / 100;
 }
 
 function renderTable(history) {
