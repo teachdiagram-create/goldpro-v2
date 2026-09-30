@@ -12,71 +12,6 @@
 <meta name="apple-mobile-web-app-title" content="GoldPro">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-#button-bar {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 10px;
-  z-index: 9999;
-  padding: 8px;
-  background: rgba(10, 14, 26, 0.85);
-  border: 1px solid rgba(255, 215, 0, 0.3);
-  border-radius: 999px;
-  backdrop-filter: blur(15px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-#notify-btn {
-  background: linear-gradient(135deg, #ffd700, #f5b041);
-  color: #0a0e1a;
-  border: none;
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-family: Vazirmatn, sans-serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-#notify-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
-}
-#test-sound-btn {
-  background: rgba(255, 215, 0, 0.15);
-  color: #ffd700;
-  border: 1px solid rgba(255, 215, 0, 0.4);
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-family: Vazirmatn, sans-serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-#test-sound-btn:hover {
-  background: rgba(255, 215, 0, 0.25);
-  transform: translateY(-2px);
-}
-#notify-btn.success {
-  background: linear-gradient(135deg, #4ade80, #22c55e);
-}
-#notify-btn.error {
-  background: linear-gradient(135deg, #f87171, #ef4444);
-  color: white;
-}
-@media (max-width: 600px) {
-  #button-bar {
-    bottom: 80px;
-  }
-  #notify-btn, #test-sound-btn {
-    padding: 8px 14px;
-    font-size: 0.78rem;
-  }
-}
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -500,15 +435,7 @@
     <div id="updated" style="margin-top:8px; opacity:0.6;"></div>
   </footer>
 </div>
-<!-- دکمه‌های نوتیفیکیشن و صدا -->
-<div id="button-bar">
-  <button id="notify-btn" onclick="initNotification()" style="display:flex;align-items:center;gap:6px;">
-    🔔 فعال‌سازی نوتیفیکیشن
-  </button>
-  <button id="test-sound-btn" onclick="testSoundAndVibrate()" style="display:flex;align-items:center;gap:6px;">
-    🔊 تست صدا
-  </button>
-</div>
+
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
   <div class="modal" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="closeModal()">✕</button>
@@ -1046,7 +973,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal()
 
 let countdown = 60;
 function updateClock() {
-  const now = new Date();
+    const now = new Date();
   const time = now.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const el = document.getElementById("live-clock");
   if (el) el.textContent = time;
@@ -1069,63 +996,11 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-async function initNotification() {
-  const btn = document.getElementById('notify-btn');
-
-  if (!('Notification' in window)) {
-    btn.textContent = '❌ پشتیبانی نمی‌شه';
-    btn.className = 'error';
-    return;
-  }
-
-  if (Notification.permission === 'granted') {
-    btn.textContent = '✅ نوتیفیکیشن فعاله';
-    btn.className = 'success';
-    return;
-  }
-
-  const permission = await Notification.requestPermission();
-
-  if (permission === 'granted') {
-    btn.textContent = '✅ نوتیفیکیشن فعال شد';
-    btn.className = 'success';
-    new Notification('GoldPro — آماده!', {
-      body: 'از الان هر سیگنال جدید رو خبر می‌دم',
-      icon: '/goldpro-v2/icon-192.svg',
-      dir: 'rtl',
-      lang: 'fa',
-    });
-    setTimeout(() => {
-      btn.style.display = 'none';
-    }, 3000);
-  } else {
-    btn.textContent = '❌ اجازه ندادی';
-    btn.className = 'error';
-    setTimeout(() => {
-      btn.textContent = '🔔 فعال‌سازی نوتیفیکیشن';
-      btn.className = '';
-    }, 3000);
-  }
-}
-
-function testSoundAndVibrate() {
-  const btn = document.getElementById('test-sound-btn');
-  const originalText = btn.textContent;
-
-  try {
-    playSignalAlarm();
-    vibrateSignal();
-    btn.textContent = '✅ صدا و لرزش';
-    setTimeout(() => { btn.textContent = originalText; }, 1500);
-  } catch (e) {
-    console.log('Test failed:', e);
-    btn.textContent = '❌ خطا';
-    setTimeout(() => { btn.textContent = originalText; }, 1500);
-  }
-}
+addNotificationButton();
+addTestSoundButton();
 loadData();
-setInterval(loadData, 60000);
 setInterval(loadData, 60000);
 </script>
 </body>
 </html>
+```
