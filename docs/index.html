@@ -304,6 +304,33 @@
     .price-grid { grid-template-columns: 1fr; }
     .modal { padding: 22px; }
   }
+.equity-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 215, 0, 0.15);
+}
+.equity-stat {
+  text-align: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.equity-stat .label {
+  font-size: 0.75rem;
+  color: #8892b0;
+  margin-bottom: 4px;
+}
+.equity-stat .value {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #ffd700;
+}
+.equity-stat .value.pos { color: #4ade80; }
+.equity-stat .value.neg { color: #f87171; }
 </style>
 </head>
 <body>
@@ -414,6 +441,7 @@ const GIST_API = "https://api.github.com/gists/" + GIST_ID;
 
 let resultChart = null;
 let tfChart = null;
+let equityChart = null;
 let currentHistory = [];
 
 function formatTime(iso, full = false) {
@@ -492,7 +520,8 @@ async function loadData() {
     }
 
     renderCharts(history, wins.length, losses.length, openTrades.length);
-    renderTable(history);
+renderEquityChart(history);
+renderTable(history);
 
     setStatus("✅ متصل — " + history.length + " سیگنال");
     document.getElementById("updated").textContent =
@@ -555,6 +584,147 @@ function renderCharts(history, wins, losses, open) {
       }
     }
   });
+}
+
+function renderEquityChart(history) {
+  // فقط معاملات بسته‌شده، به ترتیب زمانی (قدیمی → جدید)
+  const closed = history
+    .filter(h => h.result && h.pnl != null)
+    .slice()
+    .reverse();
+
+  if (closed.length === 0) {
+    document.getElementById("equity-stats").innerHTML =
+      '<div style="text-align:center; color:#8892b0; padding:20px;">📭 هنوز معامله بسته‌شده‌ای نداریم</div>';
+    if (equityChart) equityChart.destroy();
+    return;
+  }
+
+  // محاسبه Equity از 0 شروع
+  let cumulative = 0;
+  const labels = [];
+  const equityData = [0];
+  const pnlColors = [];
+
+  labels.push("شروع");
+  pnlColors.push("#4ade80");
+
+  let peak = 0;
+  let maxDrawdown = 0;
+  let currentDD = 0;
+
+  closed.forEach((h, i) => {
+    cumulative += h.pnl;
+    if (cumulative > peak) peak = cumulative;
+
+    currentDD = peak - cumulative;
+    if (currentDD > maxDrawdown) maxDrawdown = currentDD;
+
+    const d = new Date(h.sent_at + "Z");
+    const label = d.toLocaleString("fa-IR", {
+      month: "short", day: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+    labels.push(label);
+    equityData.push(round2(cumulative));
+  });
+
+  // رسم
+  if (equityChart) equityChart.destroy();
+  const ctx = document.getElementById("equityChart").getContext("2d");
+
+  // گرادیانت
+  const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+  gradient.addColorStop(0, "rgba(74, 222, 128, 0.4)");
+  gradient.addColorStop(1, "rgba(74, 222, 128, 0.0)");
+
+  equityChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "سرمایه",
+        data: equityData,
+        borderColor: "#4ade80",
+        backgroundColor: gradient,
+        borderWidth: 3,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 5,
+        pointBackgroundColor: "#ffd700",
+        pointBorderColor: "#0a0e1a",
+        pointBorderWidth: 2,
+        pointHoverRadius: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "rgba(20, 26, 46, 0.95)",
+          borderColor: "rgba(255, 215, 0, 0.4)",
+          borderWidth: 1,
+          padding: 12,
+          titleColor: "#ffd700",
+          bodyColor: "#e8ecf5",
+          titleFont: { family: "Vazirmatn", size: 13 },
+          bodyFont: { family: "Vazirmatn", size: 13 },
+          callbacks: {
+            label: function(ctx) {
+              const val = ctx.parsed.y;
+              return "سرمایه: " + (val >= 0 ? "+" : "") + val.toFixed(2);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: "#8892b0",
+            font: { family: "Vazirmatn", size: 10 },
+            maxRotation: 45, minRotation: 45,
+            autoSkip: true, maxTicksLimit: 8
+          },
+          grid: { color: "rgba(255,255,255,0.03)" }
+        },
+        y: {
+          ticks: { color: "#b8c1d9", font: { family: "Vazirmatn" } },
+          grid: { color: "rgba(255,255,255,0.05)" }
+        }
+      }
+    }
+  });
+
+  // آمار
+  const totalWin = closed.filter(h => h.pnl > 0).length;
+  const totalLoss = closed.filter(h => h.pnl < 0).length;
+
+  const statsHtml = `
+    <div class="equity-stat">
+      <div class="label">💰 سود کل</div>
+      <div class="value ${cumulative >= 0 ? 'pos' : 'neg'}">${cumulative >= 0 ? '+' : ''}${cumulative.toFixed(2)}</div>
+    </div>
+    <div class="equity-stat">
+      <div class="label">📈 اوج سرمایه</div>
+      <div class="value pos">+${peak.toFixed(2)}</div>
+    </div>
+    <div class="equity-stat">
+      <div class="label">📉 Max Drawdown</div>
+      <div class="value neg">-${maxDrawdown.toFixed(2)}</div>
+    </div>
+    <div class="equity-stat">
+      <div class="label">🎯 معاملات</div>
+      <div class="value">${closed.length}</div>
+    </div>
+  `;
+
+  document.getElementById("equity-stats").innerHTML = statsHtml;
+}
+
+function round2(n) {
+  return Math.round(n * 100) / 100;
 }
 
 function renderTable(history) {
