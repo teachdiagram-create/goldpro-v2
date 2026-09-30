@@ -11,7 +11,6 @@ def check_trade_result(trade: dict, df) -> dict:
     اگه TP یا SL خورده باشه، نتیجه رو برمی‌گردونه
     """
     if trade.get("result"):
-        # قبلاً بسته شده
         return trade
 
     side = trade["side"]
@@ -25,13 +24,13 @@ def check_trade_result(trade: dict, df) -> dict:
 
     # فقط کندل‌هایی که بعد از سیگنال اومدن
     signal_time = sent_at.replace("T", " ").split(".")[0]
+    df = df.copy()
     df["datetime_str"] = df["datetime"].astype(str)
     new_candles = df[df["datetime_str"] > signal_time]
 
     if len(new_candles) == 0:
         return trade
 
-    # چک کردن هر کندل جدید
     for _, candle in new_candles.iterrows():
         high = float(candle["high"])
         low = float(candle["low"])
@@ -39,7 +38,7 @@ def check_trade_result(trade: dict, df) -> dict:
         if side == "BUY":
             # BUY: TP بالا، SL پایین
             if high >= tp:
-                pnl = tp - entry
+                pnl = tp - entry  # مثبت = برد
                 return {
                     **trade,
                     "result": "WIN",
@@ -49,7 +48,7 @@ def check_trade_result(trade: dict, df) -> dict:
                     "closed_at": datetime.utcnow().isoformat(),
                 }
             if low <= sl:
-                pnl = entry - sl
+                pnl = sl - entry  # منفی = باخت ✅ اصلاح شد
                 return {
                     **trade,
                     "result": "LOSS",
@@ -62,7 +61,7 @@ def check_trade_result(trade: dict, df) -> dict:
         else:  # SELL
             # SELL: TP پایین، SL بالا
             if low <= tp:
-                pnl = entry - tp
+                pnl = entry - tp  # مثبت = برد
                 return {
                     **trade,
                     "result": "WIN",
@@ -72,7 +71,7 @@ def check_trade_result(trade: dict, df) -> dict:
                     "closed_at": datetime.utcnow().isoformat(),
                 }
             if high >= sl:
-                pnl = sl - entry
+                pnl = entry - sl  # منفی = باخت ✅ اصلاح شد
                 return {
                     **trade,
                     "result": "LOSS",
@@ -82,16 +81,12 @@ def check_trade_result(trade: dict, df) -> dict:
                     "closed_at": datetime.utcnow().isoformat(),
                 }
 
-    # هنوز باز
     return trade
 
 
 def update_open_trades(state: dict, dataframes: dict) -> tuple:
     """
     همه معاملات باز رو چک می‌کنه و آپدیت می‌کنه
-    
-    dataframes: dict with {"5min": df5, "15min": df15}
-    Returns: (updated_state, changed_count)
     """
     history = state.get("history", [])
     if not history:
@@ -102,11 +97,9 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
 
     for trade in history:
         if trade.get("result"):
-            # قبلاً بسته شده
             new_history.append(trade)
             continue
 
-        # چک کن کدوم تایم‌فریم
         tf = trade.get("timeframe", "5min")
         df = dataframes.get(tf)
 
@@ -117,7 +110,6 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
         updated_trade = check_trade_result(trade, df)
 
         if updated_trade.get("result") and not trade.get("result"):
-            # تغییر کرد → نتیجه جدید
             updated_count += 1
             emoji = "✅" if updated_trade["result"] == "WIN" else "❌"
             print(f"  {emoji} Trade closed: {tf} {trade['side']} "
