@@ -329,6 +329,62 @@
   }
   .equity-stat .value.pos { color: #4ade80; }
   .equity-stat .value.neg { color: #f87171; }
+  #button-bar {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 9999;
+    padding: 8px;
+    background: rgba(10, 14, 26, 0.85);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 999px;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+  #notify-btn {
+    background: linear-gradient(135deg, #ffd700, #f5b041);
+    color: #0a0e1a;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-family: Vazirmatn, sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  #notify-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(255, 215, 0, 0.4);
+  }
+  #test-sound-btn {
+    background: rgba(255, 215, 0, 0.15);
+    color: #ffd700;
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-family: Vazirmatn, sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  #test-sound-btn:hover {
+    background: rgba(255, 215, 0, 0.25);
+    transform: translateY(-2px);
+  }
+  #notify-btn.success {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+  }
+  #notify-btn.error {
+    background: linear-gradient(135deg, #f87171, #ef4444);
+    color: white;
+  }
   @media (max-width: 600px) {
     h1 { font-size: 1.8rem; }
     .stat-value { font-size: 1.4rem; }
@@ -336,6 +392,11 @@
     .hide-mobile { display: none; }
     .price-grid { grid-template-columns: 1fr; }
     .modal { padding: 22px; }
+    #button-bar { bottom: 15px; }
+    #notify-btn, #test-sound-btn {
+      padding: 7px 11px;
+      font-size: 0.72rem;
+    }
   }
 </style>
 </head>
@@ -434,6 +495,15 @@
     GoldPro V2 • به‌روزرسانی خودکار هر ۶۰ ثانیه
     <div id="updated" style="margin-top:8px; opacity:0.6;"></div>
   </footer>
+</div>
+
+<div id="button-bar">
+  <button id="notify-btn" onclick="initNotification()">
+    🔔 فعال‌سازی نوتیفیکیشن
+  </button>
+  <button id="test-sound-btn" onclick="testSoundAndVibrate()">
+    🔊 تست صدا
+  </button>
 </div>
 
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
@@ -561,14 +631,56 @@ function alertWin() {
   vibrateWin();
 }
 
-async function requestNotificationPermission() {
-  if (!('Notification' in window)) return false;
-  if (Notification.permission === 'granted') return true;
-  if (Notification.permission !== 'denied') {
-    const permission = await Notification.requestPermission();
-    return permission === 'granted';
+async function initNotification() {
+  const btn = document.getElementById('notify-btn');
+
+  if (!('Notification' in window)) {
+    btn.textContent = '❌ پشتیبانی نمی‌شه';
+    btn.className = 'error';
+    return;
   }
-  return false;
+
+  if (Notification.permission === 'granted') {
+    btn.textContent = '✅ فعاله';
+    btn.className = 'success';
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+
+  if (permission === 'granted') {
+    btn.textContent = '✅ فعال شد';
+    btn.className = 'success';
+    new Notification('GoldPro — آماده!', {
+      body: 'از الان هر سیگنال جدید رو خبر می‌دم',
+      icon: '/goldpro-v2/icon-192.svg',
+      dir: 'rtl',
+      lang: 'fa',
+    });
+    setTimeout(() => { btn.style.display = 'none'; }, 3000);
+  } else {
+    btn.textContent = '❌ اجازه ندادی';
+    btn.className = 'error';
+    setTimeout(() => {
+      btn.textContent = '🔔 فعال‌سازی نوتیفیکیشن';
+      btn.className = '';
+    }, 3000);
+  }
+}
+
+function testSoundAndVibrate() {
+  const btn = document.getElementById('test-sound-btn');
+  const originalText = btn.textContent;
+  try {
+    playSignalAlarm();
+    vibrateSignal();
+    btn.textContent = '✅ صدا و لرزش';
+    setTimeout(() => { btn.textContent = originalText; }, 1500);
+  } catch (e) {
+    console.log('Test failed:', e);
+    btn.textContent = '❌ خطا';
+    setTimeout(() => { btn.textContent = originalText; }, 1500);
+  }
 }
 
 function showSignalNotification(signal) {
@@ -634,41 +746,6 @@ async function checkForNewSignals(history) {
     localStorage.setItem('lastWinTime', latestWin.closed_at);
   }
 }
-
-function addNotificationButton() {
-  if (Notification.permission === 'granted') return;
-  const btn = document.createElement('button');
-  btn.id = 'notify-btn';
-  btn.innerHTML = '🔔 فعال‌سازی نوتیفیکیشن';
-  btn.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#ffd700,#f5b041);color:#0a0e1a;border:none;padding:12px 24px;border-radius:999px;font-family:Vazirmatn,sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(255,215,0,0.4);z-index:9998;`;
-  btn.onclick = async () => {
-    const granted = await requestNotificationPermission();
-    if (granted) {
-      btn.remove();
-      new Notification('✅ نوتیفیکیشن فعال شد', {
-        body: 'از الان هر سیگنال جدید رو خبر می‌دم',
-        icon: '/goldpro-v2/icon-192.svg',
-      });
-    } else {
-      btn.textContent = '❌ اجازه داده نشد';
-      setTimeout(() => btn.remove(), 2000);
-    }
-  };
-  document.body.appendChild(btn);
-}
-
-function addTestSoundButton() {
-  const btn = document.createElement('button');
-  btn.id = 'test-sound-btn';
-  btn.innerHTML = '🔊 تست صدا';
-  btn.style.cssText = `position:fixed;bottom:20px;right:20px;background:rgba(255,215,0,0.15);color:#ffd700;border:1px solid rgba(255,215,0,0.4);padding:10px 16px;border-radius:999px;font-family:Vazirmatn,sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;z-index:9997;backdrop-filter:blur(10px);`;
-  btn.onclick = () => {
-    playSignalAlarm();
-    vibrateSignal();
-  };
-  document.body.appendChild(btn);
-}
-
 async function loadData() {
   setStatus("⏳ در حال بارگذاری...");
   try {
@@ -973,7 +1050,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal()
 
 let countdown = 60;
 function updateClock() {
-    const now = new Date();
+  const now = new Date();
   const time = now.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const el = document.getElementById("live-clock");
   if (el) el.textContent = time;
@@ -996,11 +1073,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-addNotificationButton();
-addTestSoundButton();
 loadData();
 setInterval(loadData, 60000);
 </script>
 </body>
 </html>
-```
