@@ -480,6 +480,202 @@ function getResultBadge(r) {
 
 function round2(n) { return Math.round(n * 100) / 100; }
 
+// ═══════════════════════════════════════
+//  Alarm Sound System
+// ═══════════════════════════════════════
+
+let audioContext = null;
+
+function initAudioContext() {
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+  return audioContext;
+}
+
+function playSignalAlarm() {
+  try {
+    const ctx = initAudioContext();
+    const now = ctx.currentTime;
+    const beeps = [
+      { start: 0,    duration: 0.15, freq: 880 },
+      { start: 0.2,  duration: 0.15, freq: 1100 },
+      { start: 0.4,  duration: 0.25, freq: 1320 },
+    ];
+    beeps.forEach(beep => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = beep.freq;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0, now + beep.start);
+      gain.gain.linearRampToValueAtTime(0.4, now + beep.start + 0.02);
+      gain.gain.linearRampToValueAtTime(0, now + beep.start + beep.duration);
+      osc.start(now + beep.start);
+      osc.stop(now + beep.start + beep.duration);
+    });
+  } catch (e) { console.log('Sound failed:', e); }
+}
+
+function playWinAlarm() {
+  try {
+    const ctx = initAudioContext();
+    const now = ctx.currentTime;
+    const notes = [
+      { start: 0.0, freq: 523 },
+      { start: 0.15, freq: 659 },
+      { start: 0.3, freq: 784 },
+      { start: 0.45, freq: 1047 },
+    ];
+    notes.forEach(note => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = note.freq;
+      osc.type = 'triangle';
+      gain.gain.setValueAtTime(0, now + note.start);
+      gain.gain.linearRampToValueAtTime(0.35, now + note.start + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + note.start + 0.4);
+      osc.start(now + note.start);
+      osc.stop(now + note.start + 0.45);
+    });
+  } catch (e) { console.log('Sound failed:', e); }
+}
+
+function vibrateSignal() {
+  if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+}
+
+function vibrateWin() {
+  if ('vibrate' in navigator) navigator.vibrate([100, 50, 100, 50, 100, 50, 300]);
+}
+
+function alertNewSignal() {
+  playSignalAlarm();
+  vibrateSignal();
+}
+
+function alertWin() {
+  playWinAlarm();
+  vibrateWin();
+}
+
+// ═══════════════════════════════════════
+//  Notification System
+// ═══════════════════════════════════════
+
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission !== 'denied') {
+    const permission = await Notification.requestPermission();
+    return permission === 'granted';
+  }
+  return false;
+}
+
+function showSignalNotification(signal) {
+  alertNewSignal();
+  if (Notification.permission !== 'granted') return;
+  const emoji = signal.side === 'BUY' ? '🟢' : '🔴';
+  const tf = (signal.timeframe || '5min').replace('min', 'M');
+  const pnlText = signal.pnl != null
+    ? (signal.pnl >= 0 ? ` | +${signal.pnl.toFixed(2)}` : ` | ${signal.pnl.toFixed(2)}`)
+    : '';
+  const title = `${emoji} GoldPro — ${signal.side} ${tf}`;
+  const options = {
+    body: `ورود: ${signal.entry}${pnlText}`,
+    icon: '/goldpro-v2/icon-192.svg',
+    badge: '/goldpro-v2/icon-192.svg',
+    tag: signal.sent_at,
+    vibrate: [200, 100, 200],
+    dir: 'rtl',
+    lang: 'fa',
+    requireInteraction: true,
+  };
+  try {
+    const n = new Notification(title, options);
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch (e) { console.log('Notification failed:', e); }
+}
+
+function showWinNotification(signal) {
+  alertWin();
+  if (Notification.permission !== 'granted') return;
+  const pnl = signal.pnl || 0;
+  const title = `🎉 سیگنال WIN شد!`;
+  const options = {
+    body: `سود: +${pnl.toFixed(2)} | ${signal.side} ${signal.timeframe}`,
+    icon: '/goldpro-v2/icon-192.svg',
+    badge: '/goldpro-v2/icon-192.svg',
+    tag: 'win-' + signal.sent_at,
+    vibrate: [300, 100, 300, 100, 300],
+    dir: 'rtl',
+    lang: 'fa',
+  };
+  try { new Notification(title, options); }
+  catch (e) { console.log('Notification failed:', e); }
+}
+
+async function checkForNewSignals(history) {
+  const lastSeenTime = localStorage.getItem('lastSignalTime') || '1970-01-01';
+  const lastSentAt = history.length > 0 ? history[0].sent_at : null;
+  if (!lastSentAt) return;
+  if (lastSentAt > lastSeenTime) {
+    const newSignals = history.filter(h => h.sent_at > lastSeenTime);
+    newSignals.slice(0, 3).reverse().forEach((sig, i) => {
+      setTimeout(() => showSignalNotification(sig), i * 800);
+    });
+    localStorage.setItem('lastSignalTime', lastSentAt);
+  }
+  const closedSignals = history.filter(h => h.result === 'WIN' && h.pnl != null);
+  const lastWinKey = localStorage.getItem('lastWinTime') || '1970-01-01';
+  const newWins = closedSignals.filter(h => h.closed_at && h.closed_at > lastWinKey);
+  if (newWins.length > 0) {
+    const latestWin = newWins[0];
+    setTimeout(() => showWinNotification(latestWin), 2000);
+    localStorage.setItem('lastWinTime', latestWin.closed_at);
+  }
+}
+
+function addNotificationButton() {
+  if (Notification.permission === 'granted') return;
+  const btn = document.createElement('button');
+  btn.id = 'notify-btn';
+  btn.innerHTML = '🔔 فعال‌سازی نوتیفیکیشن';
+  btn.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#ffd700,#f5b041);color:#0a0e1a;border:none;padding:12px 24px;border-radius:999px;font-family:Vazirmatn,sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(255,215,0,0.4);z-index:9998;`;
+  btn.onclick = async () => {
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      btn.remove();
+      new Notification('✅ نوتیفیکیشن فعال شد', {
+        body: 'از الان هر سیگنال جدید رو خبر می‌دم',
+        icon: '/goldpro-v2/icon-192.svg',
+      });
+    } else {
+      btn.textContent = '❌ اجازه داده نشد';
+      setTimeout(() => btn.remove(), 2000);
+    }
+  };
+  document.body.appendChild(btn);
+}
+
+function addTestSoundButton() {
+  const btn = document.createElement('button');
+  btn.id = 'test-sound-btn';
+  btn.innerHTML = '🔊 تست صدا';
+  btn.style.cssText = `position:fixed;bottom:20px;right:20px;background:rgba(255,215,0,0.15);color:#ffd700;border:1px solid rgba(255,215,0,0.4);padding:10px 16px;border-radius:999px;font-family:Vazirmatn,sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;z-index:9997;backdrop-filter:blur(10px);`;
+  btn.onclick = () => {
+    playSignalAlarm();
+    vibrateSignal();
+  };
+  document.body.appendChild(btn);
+}
 async function loadData() {
   setStatus("⏳ در حال بارگذاری...");
   try {
@@ -528,6 +724,7 @@ async function loadData() {
       document.getElementById("last-time").textContent = "—";
     }
 
+    checkForNewSignals(history);
     renderCharts(history, wins.length, losses.length, openTrades.length);
     renderEquityChart(history);
     renderTable(history);
@@ -596,45 +793,35 @@ function renderCharts(history, wins, losses, open) {
 }
 
 function renderEquityChart(history) {
-  const closed = history
-    .filter(h => h.result && h.pnl != null)
-    .slice()
-    .reverse();
-
+  const closed = history.filter(h => h.result && h.pnl != null).slice().reverse();
   if (closed.length === 0) {
     const el = document.getElementById("equity-stats");
     if (el) el.innerHTML = '<div style="text-align:center; color:#8892b0; padding:20px;">📭 هنوز معامله بسته‌شده‌ای نداریم</div>';
     if (equityChart) equityChart.destroy();
     return;
   }
-
   let cumulative = 0;
   const labels = ["شروع"];
   const equityData = [0];
   let peak = 0;
   let maxDrawdown = 0;
-
   closed.forEach(h => {
     cumulative += h.pnl;
     if (cumulative > peak) peak = cumulative;
     const dd = peak - cumulative;
     if (dd > maxDrawdown) maxDrawdown = dd;
-
     const d = new Date(h.sent_at + "Z");
     const label = d.toLocaleString("fa-IR", {
-      month: "short", day: "numeric",
-      hour: "2-digit", minute: "2-digit"
+      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
     });
     labels.push(label);
     equityData.push(round2(cumulative));
   });
-
   if (equityChart) equityChart.destroy();
   const ctx = document.getElementById("equityChart").getContext("2d");
   const gradient = ctx.createLinearGradient(0, 0, 0, 300);
   gradient.addColorStop(0, "rgba(74, 222, 128, 0.4)");
   gradient.addColorStop(1, "rgba(74, 222, 128, 0.0)");
-
   equityChart = new Chart(ctx, {
     type: "line",
     data: {
@@ -644,28 +831,19 @@ function renderEquityChart(history) {
         data: equityData,
         borderColor: "#4ade80",
         backgroundColor: gradient,
-        borderWidth: 3,
-        fill: true,
-        tension: 0.35,
-        pointRadius: 5,
-        pointBackgroundColor: "#ffd700",
-        pointBorderColor: "#0a0e1a",
-        pointBorderWidth: 2,
-        pointHoverRadius: 8,
+        borderWidth: 3, fill: true, tension: 0.35,
+        pointRadius: 5, pointBackgroundColor: "#ffd700",
+        pointBorderColor: "#0a0e1a", pointBorderWidth: 2, pointHoverRadius: 8,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
         tooltip: {
           backgroundColor: "rgba(20, 26, 46, 0.95)",
-          borderColor: "rgba(255, 215, 0, 0.4)",
-          borderWidth: 1,
-          padding: 12,
-          titleColor: "#ffd700",
-          bodyColor: "#e8ecf5",
+          borderColor: "rgba(255, 215, 0, 0.4)", borderWidth: 1, padding: 12,
+          titleColor: "#ffd700", bodyColor: "#e8ecf5",
           titleFont: { family: "Vazirmatn", size: 13 },
           bodyFont: { family: "Vazirmatn", size: 13 },
           callbacks: {
@@ -678,41 +856,19 @@ function renderEquityChart(history) {
       },
       scales: {
         x: {
-          ticks: {
-            color: "#8892b0",
-            font: { family: "Vazirmatn", size: 10 },
-            maxRotation: 45, minRotation: 45,
-            autoSkip: true, maxTicksLimit: 8
-          },
+          ticks: { color: "#8892b0", font: { family: "Vazirmatn", size: 10 }, maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 8 },
           grid: { color: "rgba(255,255,255,0.03)" }
         },
-        y: {
-          ticks: { color: "#b8c1d9", font: { family: "Vazirmatn" } },
-          grid: { color: "rgba(255,255,255,0.05)" }
-        }
+        y: { ticks: { color: "#b8c1d9", font: { family: "Vazirmatn" } }, grid: { color: "rgba(255,255,255,0.05)" } }
       }
     }
   });
-
   const statsHtml = `
-    <div class="equity-stat">
-      <div class="label">💰 سود کل</div>
-      <div class="value ${cumulative >= 0 ? 'pos' : 'neg'}">${cumulative >= 0 ? '+' : ''}${cumulative.toFixed(2)}</div>
-    </div>
-    <div class="equity-stat">
-      <div class="label">📈 اوج سرمایه</div>
-      <div class="value pos">+${peak.toFixed(2)}</div>
-    </div>
-    <div class="equity-stat">
-      <div class="label">📉 Max Drawdown</div>
-      <div class="value neg">-${maxDrawdown.toFixed(2)}</div>
-    </div>
-    <div class="equity-stat">
-      <div class="label">🎯 معاملات</div>
-      <div class="value">${closed.length}</div>
-    </div>
+    <div class="equity-stat"><div class="label">💰 سود کل</div><div class="value ${cumulative >= 0 ? 'pos' : 'neg'}">${cumulative >= 0 ? '+' : ''}${cumulative.toFixed(2)}</div></div>
+    <div class="equity-stat"><div class="label">📈 اوج سرمایه</div><div class="value pos">+${peak.toFixed(2)}</div></div>
+    <div class="equity-stat"><div class="label">📉 Max Drawdown</div><div class="value neg">-${maxDrawdown.toFixed(2)}</div></div>
+    <div class="equity-stat"><div class="label">🎯 معاملات</div><div class="value">${closed.length}</div></div>
   `;
-
   document.getElementById("equity-stats").innerHTML = statsHtml;
 }
 
@@ -722,26 +878,21 @@ function renderTable(history) {
       '<div class="empty">📭 هنوز هیچ سیگنالی ثبت نشده</div>';
     return;
   }
-
   let html = '<table><thead><tr>' +
     '<th>زمان</th><th>نوع</th><th>نتیجه</th><th>ورود</th>' +
     '<th class="hide-mobile">سود</th>' +
     '<th class="hide-mobile">RSI</th></tr></thead><tbody>';
-
   history.slice(0, 50).forEach((h, idx) => {
     const sideBadge = h.side === "BUY"
       ? '<span class="badge buy">🟢 BUY</span>'
       : '<span class="badge sell">🔴 SELL</span>';
-
     const resultBadge = getResultBadge(h.result);
-
     let pnlText = "—";
     let pnlColor = "#8892b0";
     if (h.pnl != null) {
       pnlText = (h.pnl >= 0 ? "+" : "") + h.pnl.toFixed(2);
       pnlColor = h.pnl >= 0 ? "#4ade80" : "#f87171";
     }
-
     html += `<tr onclick="openModal(${idx})">` +
       '<td>' + formatTime(h.sent_at) + '</td>' +
       '<td>' + sideBadge + '</td>' +
@@ -751,7 +902,6 @@ function renderTable(history) {
       '<td class="hide-mobile">' + (h.rsi || "—") + '</td>' +
       '</tr>';
   });
-
   html += '</tbody></table>';
   document.getElementById("table-wrap").innerHTML = html;
 }
@@ -759,12 +909,9 @@ function renderTable(history) {
 function openModal(idx) {
   const h = currentHistory[idx];
   if (!h) return;
-
-  const isBuy = h.side === "BUY";
-  const sideBadge = isBuy
+  const sideBadge = h.side === "BUY"
     ? '<span class="badge buy">🟢 BUY</span>'
     : '<span class="badge sell">🔴 SELL</span>';
-
   let resultHtml = "";
   if (h.result === "WIN") {
     resultHtml = `<div class="result-box win">✅ WIN (+${(h.pnl || 0).toFixed(2)})</div>`;
@@ -773,9 +920,7 @@ function openModal(idx) {
   } else {
     resultHtml = `<div class="result-box open">⏳ در جریان — منتظر TP/SL</div>`;
   }
-
-  let riskReward = "—";
-  let slDist = "—", tpDist = "—";
+  let riskReward = "—", slDist = "—", tpDist = "—";
   if (h.entry && h.sl && h.tp) {
     const risk = Math.abs(h.entry - h.sl);
     const reward = Math.abs(h.tp - h.entry);
@@ -785,90 +930,41 @@ function openModal(idx) {
       tpDist = reward.toFixed(2);
     }
   }
-
   let rsiClass = "";
-  if (h.rsi) {
-    if (h.rsi > 70) rsiClass = "bad";
-    else if (h.rsi < 30) rsiClass = "good";
-  }
-
+  if (h.rsi) { if (h.rsi > 70) rsiClass = "bad"; else if (h.rsi < 30) rsiClass = "good"; }
   let adxClass = "";
-  if (h.adx) {
-    if (h.adx > 25) adxClass = "good";
-    else if (h.adx < 15) adxClass = "bad";
-  }
-
+  if (h.adx) { if (h.adx > 25) adxClass = "good"; else if (h.adx < 15) adxClass = "bad"; }
   const exitRow = h.exit_price
-    ? `<div class="price-item exit">
-         <div class="label">🏁 خروج</div>
-         <div class="value">${h.exit_price}</div>
-       </div>` : "";
-
+    ? `<div class="price-item exit"><div class="label">🏁 خروج</div><div class="value">${h.exit_price}</div></div>` : "";
   const html = `
-    <div class="modal-header">
-      ${sideBadge}
-      <h3>Gold ${h.side}</h3>
-      <div class="time">⏰ ${formatTime(h.sent_at, true)}</div>
-    </div>
-
+    <div class="modal-header">${sideBadge}<h3>Gold ${h.side}</h3><div class="time">⏰ ${formatTime(h.sent_at, true)}</div></div>
     ${resultHtml}
-
     <div class="modal-section">
       <h4>💰 قیمت‌ها</h4>
       <div class="price-grid">
-        <div class="price-item entry">
-          <div class="label">💵 ورود</div>
-          <div class="value">${h.entry || "—"}</div>
-        </div>
-        <div class="price-item sl">
-          <div class="label">🛑 حد ضرر</div>
-          <div class="value">${h.sl || "—"}</div>
-        </div>
-        <div class="price-item tp">
-          <div class="label">🎯 حد سود</div>
-          <div class="value">${h.tp || "—"}</div>
-        </div>
+        <div class="price-item entry"><div class="label">💵 ورود</div><div class="value">${h.entry || "—"}</div></div>
+        <div class="price-item sl"><div class="label">🛑 حد ضرر</div><div class="value">${h.sl || "—"}</div></div>
+        <div class="price-item tp"><div class="label">🎯 حد سود</div><div class="value">${h.tp || "—"}</div></div>
         ${exitRow}
       </div>
     </div>
-
     <div class="modal-section">
       <h4>📊 نسبت ریسک به ریوارد</h4>
       <div class="risk-info">
-        <div class="item">
-          <div class="label">R:R</div>
-          <div class="value">${riskReward}</div>
-        </div>
-        <div class="item">
-          <div class="label">فاصله SL / TP</div>
-          <div class="value">${slDist} / ${tpDist}</div>
-        </div>
+        <div class="item"><div class="label">R:R</div><div class="value">${riskReward}</div></div>
+        <div class="item"><div class="label">فاصله SL / TP</div><div class="value">${slDist} / ${tpDist}</div></div>
       </div>
     </div>
-
     <div class="modal-section">
       <h4>📈 اندیکاتورها</h4>
       <div class="indicator-list">
-        <div class="indicator-row">
-          <span class="name">⏱ تایم‌فریم</span>
-          <span class="val">${h.timeframe || "—"}</span>
-        </div>
-        <div class="indicator-row">
-          <span class="name">📊 RSI (14)</span>
-          <span class="val ${rsiClass}">${h.rsi || "—"}</span>
-        </div>
-        <div class="indicator-row">
-          <span class="name">📉 ADX (14)</span>
-          <span class="val ${adxClass}">${h.adx || "—"}</span>
-        </div>
-        <div class="indicator-row">
-          <span class="name">📈 ATR (14)</span>
-          <span class="val">${h.atr || "—"}</span>
-        </div>
+        <div class="indicator-row"><span class="name">⏱ تایم‌فریم</span><span class="val">${h.timeframe || "—"}</span></div>
+        <div class="indicator-row"><span class="name">📊 RSI (14)</span><span class="val ${rsiClass}">${h.rsi || "—"}</span></div>
+        <div class="indicator-row"><span class="name">📉 ADX (14)</span><span class="val ${adxClass}">${h.adx || "—"}</span></div>
+        <div class="indicator-row"><span class="name">📈 ATR (14)</span><span class="val">${h.atr || "—"}</span></div>
       </div>
     </div>
   `;
-
   document.getElementById("modal-content").innerHTML = html;
   document.getElementById("modal").classList.add("active");
   document.body.style.overflow = "hidden";
@@ -880,16 +976,12 @@ function closeModal(e) {
   document.body.style.overflow = "";
 }
 
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape") closeModal();
-});
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
 
 let countdown = 60;
 function updateClock() {
   const now = new Date();
-  const time = now.toLocaleTimeString("fa-IR", {
-    hour: "2-digit", minute: "2-digit", second: "2-digit"
-  });
+  const time = now.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   const el = document.getElementById("live-clock");
   if (el) el.textContent = time;
 }
@@ -903,17 +995,10 @@ setInterval(updateClock, 1000);
 setInterval(updateCountdown, 1000);
 updateClock();
 
+addNotificationButton();
+addTestSoundButton();
 loadData();
 setInterval(loadData, 60000);
-</script>
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/goldpro-v2/sw.js', { scope: '/goldpro-v2/' })
-        .then(reg => console.log('✅ SW registered:', reg.scope))
-        .catch(err => console.log('❌ SW failed:', err));
-    });
-  }
 </script>
 </body>
 </html>
