@@ -754,20 +754,34 @@ async function checkForNewSignals(history) {
 }
 
 // ═══════════════════════════════════════
-//  Live Gold Price
+//  Live Gold Price — از Gist می‌خونه
 // ═══════════════════════════════════════
 let previousPrice = null;
 
 async function fetchGoldPrice() {
   try {
-    const res = await fetch('https://api.gold-api.com/price/XAU', { cache: 'no-store' });
+    const res = await fetch(GIST_API, {
+      headers: { "Accept": "application/vnd.github+json" },
+      cache: 'no-store'
+    });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data = await res.json();
-    const price = parseFloat(data.price);
-    if (!price || isNaN(price)) throw new Error('invalid price');
+    const gistData = await res.json();
+
+    const files = gistData.files || {};
+    const stateFile = files["goldpro-state.json"];
+    if (!stateFile) throw new Error('state file not found');
+
+    const data = JSON.parse(stateFile.content);
+    const price = data.current_price;
+    const updatedAt = data.price_updated_at;
 
     const el = document.getElementById('live-price');
     const changeEl = document.getElementById('price-change');
+
+    if (!price || isNaN(price)) {
+      if (changeEl) changeEl.textContent = '⏳ منتظر اولین به‌روزرسانی...';
+      return;
+    }
 
     if (previousPrice !== null && el) {
       if (price > previousPrice) el.className = 'price-value up';
@@ -783,8 +797,10 @@ async function fetchGoldPrice() {
       const cls = diff >= 0 ? 'pos' : 'neg';
       if (changeEl) changeEl.innerHTML =
         `<span class="${cls}">${sign}${diff.toFixed(2)}</span> از بروزرسانی قبل`;
-    } else {
-      if (changeEl) changeEl.textContent = '🟢 به‌روزرسانی خودکار هر ۳۰ ثانیه';
+    } else if (updatedAt) {
+      const d = new Date(updatedAt + "Z");
+      const time = d.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" });
+      if (changeEl) changeEl.textContent = `🕐 آخرین به‌روزرسانی: ${time}`;
     }
 
     previousPrice = price;
@@ -1008,11 +1024,9 @@ function renderTable(history) {
 function openModal(idx) {
   const h = currentHistory[idx];
   if (!h) return;
-
   const sideBadge = h.side === "BUY"
     ? '<span class="badge buy">🟢 BUY</span>'
     : '<span class="badge sell">🔴 SELL</span>';
-
   let resultHtml = "";
   if (h.result === "WIN") {
     resultHtml = `<div class="result-box win">✅ WIN (+${(h.pnl || 0).toFixed(2)})</div>`;
@@ -1021,7 +1035,6 @@ function openModal(idx) {
   } else {
     resultHtml = `<div class="result-box open">⏳ در جریان — منتظر TP/SL</div>`;
   }
-
   let riskReward = "—", slDist = "—", tpDist = "—";
   if (h.entry && h.sl && h.tp) {
     const risk = Math.abs(h.entry - h.sl);
@@ -1032,15 +1045,12 @@ function openModal(idx) {
       tpDist = reward.toFixed(2);
     }
   }
-
   let rsiClass = "";
   if (h.rsi) { if (h.rsi > 70) rsiClass = "bad"; else if (h.rsi < 30) rsiClass = "good"; }
   let adxClass = "";
   if (h.adx) { if (h.adx > 25) adxClass = "good"; else if (h.adx < 15) adxClass = "bad"; }
-
   const exitRow = h.exit_price
     ? `<div class="price-item exit"><div class="label">🏁 خروج</div><div class="value">${h.exit_price}</div></div>` : "";
-
   const html = `
     <div class="modal-header">${sideBadge}<h3>Gold ${h.side}</h3><div class="time">⏰ ${formatTime(h.sent_at, true)}</div></div>
     ${resultHtml}
@@ -1071,7 +1081,6 @@ function openModal(idx) {
     </div>
     <button class="share-btn" onclick="shareSignal(${idx})">📤 اشتراک‌گذاری سیگنال</button>
   `;
-
   document.getElementById("modal-content").innerHTML = html;
   document.getElementById("modal").classList.add("active");
   document.body.style.overflow = "hidden";
@@ -1176,7 +1185,7 @@ if ('serviceWorker' in navigator) {
 }
 
 fetchGoldPrice();
-setInterval(fetchGoldPrice, 30000);
+setInterval(fetchGoldPrice, 60000);
 
 loadData();
 setInterval(loadData, 60000);
