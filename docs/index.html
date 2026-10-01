@@ -398,6 +398,34 @@
       font-size: 0.72rem;
     }
   }
+.share-btn {
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px;
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+  color: #0a0e1a;
+  border: none;
+  border-radius: 12px;
+  font-family: Vazirmatn, sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.share-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(74, 222, 128, 0.4);
+}
+.share-btn:active {
+  transform: translateY(0);
+}
+.share-btn.copied {
+  background: linear-gradient(135deg, #ffd700, #f5b041);
+}
 </style>
 </head>
 <body>
@@ -1037,11 +1065,89 @@ function openModal(idx) {
       </div>
     </div>
   `;
+    html += `
+    <button class="share-btn" onclick="shareSignal(${idx})">
+      📤 اشتراک‌گذاری سیگنال
+    </button>
+  `;
+
   document.getElementById("modal-content").innerHTML = html;
   document.getElementById("modal").classList.add("active");
   document.body.style.overflow = "hidden";
 }
 
+async function shareSignal(idx) {
+  const h = currentHistory[idx];
+  if (!h) return;
+
+  const btn = document.querySelector('.share-btn');
+  const originalText = btn ? btn.textContent : '';
+
+  // ساخت متن اشتراک
+  const sideEmoji = h.side === "BUY" ? "🟢" : "🔴";
+  const tf = (h.timeframe || "5min").replace("min", "M");
+  const entry = h.entry || "—";
+  const sl = h.sl || "—";
+  const tp = h.tp || "—";
+  const rsi = h.rsi || "—";
+  const adx = h.adx || "—";
+  const atr = h.atr || "—";
+
+  let pnlLine = "";
+  if (h.result === "WIN" && h.pnl != null) {
+    pnlLine = `\n🎉 نتیجه: ✅ WIN (+${h.pnl.toFixed(2)})`;
+  } else if (h.result === "LOSS" && h.pnl != null) {
+    pnlLine = `\n❌ نتیجه: LOSS (${h.pnl.toFixed(2)})`;
+  } else if (!h.result) {
+    pnlLine = `\n⏳ در جریان — منتظر TP/SL`;
+  }
+
+  const signalTime = formatTime(h.sent_at, true);
+
+  const shareText =
+    `${sideEmoji} GOLD ${h.side} — ${tf}\n` +
+    `━━━━━━━━━━━━━━━━━━\n` +
+    `💵 ورود: ${entry}\n` +
+    `🛑 حد ضرر: ${sl}\n` +
+    `🎯 حد سود: ${tp}\n` +
+    `📊 RSI: ${rsi} | ADX: ${adx}\n` +
+    `📈 ATR: ${atr}` +
+    pnlLine +
+    `\n⏰ ${signalTime}\n` +
+    `━━━━━━━━━━━━━━━━━━\n` +
+    `📱 GoldPro V2`;
+
+  // تلاش برای استفاده از Web Share API
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `${sideEmoji} سیگنال ${h.side} — ${tf}`,
+        text: shareText,
+      });
+      return;
+    } catch (err) {
+      // کاربر لغو کرد → بی‌خیال
+      if (err.name === 'AbortError') return;
+      console.log('Share failed, trying copy:', err);
+    }
+  }
+
+  // Fallback: کپی به کلیپ‌بورد
+  try {
+    await navigator.clipboard.writeText(shareText);
+    if (btn) {
+      btn.textContent = '✅ کپی شد!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.classList.remove('copied');
+      }, 2000);
+    }
+  } catch (err) {
+    // حتی clipboard هم کار نکرد → alert
+    alert('اشتراک:\n\n' + shareText);
+  }
+}
 function closeModal(e) {
   if (e && e.target !== e.currentTarget) return;
   document.getElementById("modal").classList.remove("active");
