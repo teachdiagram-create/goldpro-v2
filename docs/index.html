@@ -45,6 +45,39 @@
     color: #f87171;
     border-color: rgba(248, 113, 113, 0.3);
   }
+  .price-card {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(255, 215, 0, 0.03));
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 25px rgba(255, 215, 0, 0.1);
+  }
+  .price-label {
+    font-size: 0.85rem;
+    color: #8892b0;
+    margin-bottom: 10px;
+  }
+  .price-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #ffd700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    transition: color 0.3s;
+    font-family: 'Vazirmatn', sans-serif;
+  }
+  .price-value.up { color: #4ade80; }
+  .price-value.down { color: #f87171; }
+  .price-change {
+    font-size: 0.85rem;
+    color: #8892b0;
+    margin-top: 10px;
+  }
+  .price-change .pos { color: #4ade80; font-weight: 700; }
+  .price-change .neg { color: #f87171; font-weight: 700; }
   .live-bar {
     display: flex; justify-content: center; gap: 18px;
     flex-wrap: wrap; padding: 10px 16px;
@@ -392,6 +425,7 @@
   @media (max-width: 600px) {
     h1 { font-size: 1.8rem; }
     .stat-value { font-size: 1.4rem; }
+    .price-value { font-size: 2rem; }
     th, td { padding: 10px 5px; font-size: 0.75rem; }
     .hide-mobile { display: none; }
     .price-grid { grid-template-columns: 1fr; }
@@ -411,6 +445,12 @@
     <div class="subtitle">داشبورد سیگنال‌های معاملاتی XAU/USD</div>
     <div id="status" class="status-bar">⏳ در حال بارگذاری...</div>
   </header>
+
+  <div class="price-card">
+    <div class="price-label">💰 قیمت لحظه‌ای طلا (XAU/USD)</div>
+    <div class="price-value" id="live-price">—</div>
+    <div class="price-change" id="price-change">⏳ در حال بارگذاری...</div>
+  </div>
 
   <div class="live-bar">
     <div class="live-item">
@@ -666,17 +706,15 @@ function showSignalNotification(signal) {
   if (Notification.permission !== 'granted') return;
   const emoji = signal.side === 'BUY' ? '🟢' : '🔴';
   const tf = (signal.timeframe || '5min').replace('min', 'M');
-  const title = `${emoji} GoldPro — ${signal.side} ${tf}`;
-  const options = {
-    body: `ورود: ${signal.entry}`,
-    icon: '/goldpro-v2/icon-192.svg',
-    tag: signal.sent_at,
-    vibrate: [300, 150, 300],
-    dir: 'rtl', lang: 'fa',
-    requireInteraction: true,
-  };
   try {
-    const n = new Notification(title, options);
+    const n = new Notification(`${emoji} GoldPro — ${signal.side} ${tf}`, {
+      body: `ورود: ${signal.entry}`,
+      icon: '/goldpro-v2/icon-192.svg',
+      tag: signal.sent_at,
+      vibrate: [300, 150, 300],
+      dir: 'rtl', lang: 'fa',
+      requireInteraction: true,
+    });
     n.onclick = () => { window.focus(); n.close(); };
   } catch (e) { console.log('Notification failed:', e); }
 }
@@ -712,6 +750,48 @@ async function checkForNewSignals(history) {
   if (newWins.length > 0) {
     setTimeout(() => showWinNotification(newWins[0]), 4000);
     localStorage.setItem('lastWinTime', newWins[0].closed_at);
+  }
+}
+
+// ═══════════════════════════════════════
+//  Live Gold Price
+// ═══════════════════════════════════════
+let previousPrice = null;
+
+async function fetchGoldPrice() {
+  try {
+    const res = await fetch('https://api.gold-api.com/price/XAU', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const price = parseFloat(data.price);
+    if (!price || isNaN(price)) throw new Error('invalid price');
+
+    const el = document.getElementById('live-price');
+    const changeEl = document.getElementById('price-change');
+
+    if (previousPrice !== null && el) {
+      if (price > previousPrice) el.className = 'price-value up';
+      else if (price < previousPrice) el.className = 'price-value down';
+      setTimeout(() => { if (el) el.className = 'price-value'; }, 900);
+    }
+
+    if (el) el.textContent = price.toFixed(2);
+
+    if (previousPrice !== null) {
+      const diff = price - previousPrice;
+      const sign = diff >= 0 ? '+' : '';
+      const cls = diff >= 0 ? 'pos' : 'neg';
+      if (changeEl) changeEl.innerHTML =
+        `<span class="${cls}">${sign}${diff.toFixed(2)}</span> از بروزرسانی قبل`;
+    } else {
+      if (changeEl) changeEl.textContent = '🟢 به‌روزرسانی خودکار هر ۳۰ ثانیه';
+    }
+
+    previousPrice = price;
+  } catch (e) {
+    console.log('Price fetch failed:', e);
+    const changeEl = document.getElementById('price-change');
+    if (changeEl) changeEl.textContent = '⚠️ در حال تلاش دوباره...';
   }
 }
 async function loadData() {
@@ -1079,9 +1159,7 @@ if ('serviceWorker' in navigator) {
         updateViaCache: 'none'
       });
       console.log('✅ SW registered:', reg.scope);
-
       reg.update();
-
       reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         newWorker.addEventListener('statechange', () => {
@@ -1096,6 +1174,9 @@ if ('serviceWorker' in navigator) {
     }
   });
 }
+
+fetchGoldPrice();
+setInterval(fetchGoldPrice, 30000);
 
 loadData();
 setInterval(loadData, 60000);
