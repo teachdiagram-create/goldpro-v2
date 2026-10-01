@@ -3,6 +3,7 @@ from src.data_fetcher import fetch_ohlc
 from src.indicators import add_indicators
 from src.signal_logic import evaluate_signal
 from src.telegram_bot import send_telegram, format_message
+from src.notifier import send_signal_ntfy, send_win_ntfy
 from src.trade_tracker import update_open_trades, calculate_win_stats
 
 
