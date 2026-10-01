@@ -1073,6 +1073,34 @@ updateClock();
 
 loadData();
 setInterval(loadData, 60000);
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('/goldpro-v2/sw.js', {
+        scope: '/goldpro-v2/',
+        updateViaCache: 'none'
+      });
+      console.log('✅ SW registered:', reg.scope);
+
+      reg.update();
+
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
+            console.log('🔄 New version available, reloading...');
+            window.location.reload();
+          }
+        });
+      });
+    } catch (err) {
+      console.log('❌ SW failed:', err);
+    }
+  });
+}
+
+loadData();
+setInterval(loadData, 60000);
 </script>
 </body>
 </html>
