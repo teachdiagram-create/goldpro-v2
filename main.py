@@ -35,13 +35,20 @@ def process_timeframe(tf, state):
         return state, False, df
 
     ok = send_telegram(format_message(signal))
-    if ok:
-        state = mark_sent(signal, state)
-        print(f"📨 {tf}: Telegram sent")
-        return state, True, df
+if ok:
+    state = mark_sent(signal, state)
+    print(f"📨 {tf}: Telegram sent")
+
+    # Ntfy Push
+    if send_signal_ntfy(signal):
+        print(f"🔔 {tf}: Ntfy sent")
     else:
-        print(f"❌ {tf}: Telegram failed")
-        return state, False, df
+        print(f"⚠️ {tf}: Ntfy failed")
+
+    return state, True, df
+else:
+    print(f"❌ {tf}: Telegram failed")
+    return state, False, df
 
 
 def main():
