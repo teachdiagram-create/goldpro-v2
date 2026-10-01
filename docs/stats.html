@@ -90,7 +90,7 @@
   }
   .stat-mini .value.pos { color: #4ade80; }
   .stat-mini .value.neg { color: #f87171; }
-  .stat-mini .value.small { font-size: 1.1rem; }
+  .stat-mini .value.small { font-size: 1.05rem; }
 
   .card {
     background: rgba(255, 255, 255, 0.03);
@@ -117,8 +117,6 @@
     position: relative;
     height: 240px;
   }
-
-  /* Heatmap */
   .heatmap {
     display: grid;
     grid-template-columns: 60px repeat(24, 1fr);
@@ -225,6 +223,7 @@
     color: #4a5578;
     font-size: 0.85rem;
   }
+
   @media (max-width: 600px) {
     h1 { font-size: 1.7rem; }
     .stat-mini .value { font-size: 1.2rem; }
@@ -250,7 +249,6 @@
     <div id="status" class="status-bar">⏳ در حال بارگذاری...</div>
   </div>
 
-  <!-- خلاصه -->
   <div class="stats-mini">
     <div class="stat-mini">
       <div class="label">🎯 کل معاملات</div>
@@ -270,7 +268,6 @@
     </div>
   </div>
 
-  <!-- بهترین روز -->
   <div class="card">
     <h2>🥇 بهترین و بدترین روزها</h2>
     <div class="stats-mini" style="margin-bottom: 0;">
@@ -285,25 +282,21 @@
     </div>
   </div>
 
-  <!-- نمودار روزهای هفته -->
   <div class="card">
     <h2>📅 عملکرد به تفکیک روز هفته</h2>
     <div class="chart-wrap"><canvas id="dayChart"></canvas></div>
   </div>
 
-  <!-- نمودار ساعت‌های روز -->
   <div class="card">
     <h2>🕐 عملکرد به تفکیک ساعت (UTC)</h2>
     <div class="chart-wrap"><canvas id="hourChart"></canvas></div>
   </div>
 
-  <!-- نمودار تایم‌فریم -->
   <div class="card">
     <h2>⏱ مقایسه تایم‌فریم‌ها</h2>
     <div class="chart-wrap"><canvas id="tfCompareChart"></canvas></div>
   </div>
 
-  <!-- Heatmap -->
   <div class="card">
     <h2>🔥 نقشه حرارتی (روز × ساعت)</h2>
     <p class="hint">🔴 = باخت | 🟢 = برد | شدت رنگ = تعداد معاملات</p>
@@ -328,7 +321,6 @@
     </div>
   </div>
 
-  <!-- جدول -->
   <div class="card">
     <h2>📋 آمار تفصیلی روزها</h2>
     <div id="table-wrap">
@@ -346,11 +338,12 @@ const GIST_ID = "da4184ca28cfa99438719f3e331c08b3";
 const GIST_API = "https://api.github.com/gists/" + GIST_ID;
 
 const PERSIAN_DAYS = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه"];
-const PERSIAN_DAYS_SHORT = ["ی", "د", "س", "چ", "پ", "ج", "ش"];
 
 let dayChart = null;
 let hourChart = null;
 let tfCompareChart = null;
+
+function round2(n) { return Math.round(n * 100) / 100; }
 
 function setStatus(text, isError = false) {
   const el = document.getElementById("status");
@@ -385,7 +378,7 @@ async function loadStats() {
     renderHeatmap(history);
     renderTable(history);
 
-    setStatus(`✅ ${history.length} معامله آنالیز شد`);
+    setStatus("✅ " + history.length + " معامله آنالیز شد");
     document.getElementById("updated").textContent =
       "آخرین بروزرسانی: " + new Date().toLocaleTimeString("fa-IR");
   } catch (err) {
@@ -402,7 +395,7 @@ function renderSummary(history) {
   const avgPnl = closed > 0 ? totalPnl / closed : 0;
 
   document.getElementById("total").textContent = history.length;
-  document.getElementById("wl").textContent = `${wins} / ${losses}`;
+  document.getElementById("wl").textContent = wins + " / " + losses;
   const pnlEl = document.getElementById("pnl");
   pnlEl.textContent = (totalPnl >= 0 ? "+" : "") + totalPnl.toFixed(2);
   pnlEl.className = "value " + (totalPnl >= 0 ? "pos" : "neg");
@@ -411,33 +404,10 @@ function renderSummary(history) {
   avgEl.className = "value " + (avgPnl >= 0 ? "pos" : "neg");
 }
 
-function renderBestWorst(history) {
-  const dayStats = getDayStats(history);
-  let best = null, worst = null;
-  Object.values(dayStats).forEach(d => {
-    if (d.total === 0) return;
-    if (!best || d.pnl > best.pnl) best = d;
-    if (!worst || d.pnl < worst.pnl) worst = d;
-  });
-
-  if (best) {
-    document.getElementById("best-day").textContent =
-      `${best.name} (${best.wins}W/${best.losses}L • ${best.pnl >= 0 ? '+' : ''}${best.pnl.toFixed(1)})`;
-  } else {
-    document.getElementById("best-day").textContent = "—";
-  }
-  if (worst) {
-    document.getElementById("worst-day").textContent =
-      `${worst.name} (${worst.wins}W/${worst.losses}L • ${worst.pnl >= 0 ? '+' : ''}${worst.pnl.toFixed(1)})`;
-  } else {
-    document.getElementById("worst-day").textContent = "—";
-  }
-}
-
 function getDayStats(history) {
   const days = {};
   PERSIAN_DAYS.forEach((name, i) => {
-    days[i] = { name, total: 0, wins: 0, losses: 0, pnl: 0 };
+    days[i] = { name: name, total: 0, wins: 0, losses: 0, pnl: 0 };
   });
   history.forEach(h => {
     if (!h.sent_at) return;
@@ -451,9 +421,33 @@ function getDayStats(history) {
   return days;
 }
 
+function renderBestWorst(history) {
+  const dayStats = getDayStats(history);
+  let best = null, worst = null;
+  Object.values(dayStats).forEach(d => {
+    if (d.total === 0) return;
+    if (!best || d.pnl > best.pnl) best = d;
+    if (!worst || d.pnl < worst.pnl) worst = d;
+  });
+
+  if (best) {
+    document.getElementById("best-day").textContent =
+      best.name + " (" + best.wins + "W/" + best.losses + "L • " +
+      (best.pnl >= 0 ? "+" : "") + best.pnl.toFixed(1) + ")";
+  } else {
+    document.getElementById("best-day").textContent = "—";
+  }
+  if (worst) {
+    document.getElementById("worst-day").textContent =
+      worst.name + " (" + worst.wins + "W/" + worst.losses + "L • " +
+      (worst.pnl >= 0 ? "+" : "") + worst.pnl.toFixed(1) + ")";
+  } else {
+    document.getElementById("worst-day").textContent = "—";
+  }
+}
+
 function renderDayChart(history) {
   const days = getDayStats(history);
-
   const labels = [];
   const data = [];
   const colors = [];
@@ -470,10 +464,10 @@ function renderDayChart(history) {
   dayChart = new Chart(ctx, {
     type: "bar",
     data: {
-      labels,
+      labels: labels,
       datasets: [{
         label: "سود/زیان",
-        data,
+        data: data,
         backgroundColor: colors,
         borderColor: colors.map(c => c.replace("0.7", "1")),
         borderWidth: 2,
@@ -492,12 +486,12 @@ function renderDayChart(history) {
           titleFont: { family: "Vazirmatn" },
           bodyFont: { family: "Vazirmatn" },
           callbacks: {
-            label: c => {
+            label: function(c) {
               const i = c.dataIndex;
               const d = days[i];
               return [
-                `سود: ${d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)}`,
-                `برد: ${d.wins} | باخت: ${d.losses}`
+                "سود: " + (d.pnl >= 0 ? "+" : "") + d.pnl.toFixed(2),
+                "برد: " + d.wins + " | باخت: " + d.losses
               ];
             }
           }
@@ -510,7 +504,6 @@ function renderDayChart(history) {
     }
   });
 }
-
 function renderHourChart(history) {
   const hours = {};
   for (let i = 0; i < 24; i++) hours[i] = { total: 0, wins: 0, losses: 0, pnl: 0 };
@@ -538,12 +531,8 @@ function renderHourChart(history) {
   hourChart = new Chart(ctx, {
     type: "bar",
     data: {
-      labels,
-      datasets: [{
-        data,
-        backgroundColor: colors,
-        borderRadius: 6,
-      }]
+      labels: labels,
+      datasets: [{ data: data, backgroundColor: colors, borderRadius: 6 }]
     },
     options: {
       responsive: true,
@@ -580,7 +569,7 @@ function renderTfCompare(history) {
   tfCompareChart = new Chart(ctx, {
     type: "bar",
     data: {
-      labels,
+      labels: labels,
       datasets: [
         {
           label: "نرخ برد (%)",
@@ -631,11 +620,11 @@ function renderHeatmap(history) {
 
   let html = '<div class="heatmap-cell header"></div>';
   for (let i = 0; i < 24; i++) {
-    html += `<div class="heatmap-cell header">${i}</div>`;
+    html += '<div class="heatmap-cell header">' + i + '</div>';
   }
 
   for (let d = 0; d < 7; d++) {
-    html += `<div class="heatmap-cell day-label">${PERSIAN_DAYS[d]}</div>`;
+    html += '<div class="heatmap-cell day-label">' + PERSIAN_DAYS[d] + '</div>';
     for (let hh = 0; hh < 24; hh++) {
       const key = d + "-" + hh;
       const cell = grid[key];
@@ -655,10 +644,10 @@ function renderHeatmap(history) {
       }
 
       const tooltip = cell
-        ? `${PERSIAN_DAYS[d]} ساعت ${hh} UTC — برد: ${cell.wins}، باخت: ${cell.losses}`
-        : `${PERSIAN_DAYS[d]} ساعت ${hh} — بدون معامله`;
+        ? PERSIAN_DAYS[d] + " ساعت " + hh + " UTC — برد: " + cell.wins + "، باخت: " + cell.losses
+        : PERSIAN_DAYS[d] + " ساعت " + hh + " — بدون معامله";
 
-      html += `<div class="heatmap-cell ${cls}" title="${tooltip}">${label}</div>`;
+      html += '<div class="heatmap-cell ' + cls + '" title="' + tooltip + '">' + label + '</div>';
     }
   }
 
@@ -675,21 +664,19 @@ function renderTable(history) {
     if (d.total === 0) continue;
     const wr = (d.wins + d.losses) > 0 ? round2(d.wins / (d.wins + d.losses) * 100) : 0;
     const pnlCls = d.pnl >= 0 ? "pos" : "neg";
-    html += `<tr>
-      <td>${d.name}</td>
-      <td>${d.total}</td>
-      <td class="pos">${d.wins}</td>
-      <td class="neg">${d.losses}</td>
-      <td>${wr}%</td>
-      <td class="${pnlCls}">${d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)}</td>
-    </tr>`;
+    html += '<tr>' +
+      '<td>' + d.name + '</td>' +
+      '<td>' + d.total + '</td>' +
+      '<td class="pos">' + d.wins + '</td>' +
+      '<td class="neg">' + d.losses + '</td>' +
+      '<td>' + wr + '%</td>' +
+      '<td class="' + pnlCls + '">' + (d.pnl >= 0 ? '+' : '') + d.pnl.toFixed(2) + '</td>' +
+      '</tr>';
   }
 
   html += '</tbody></table>';
-  document.getElementById("wrap").innerHTML = html;
+  document.getElementById("table-wrap").innerHTML = html;
 }
-
-function round2(n) { return Math.round(n * 100) / 100; }
 
 loadStats();
 setInterval(loadStats, 120000);
