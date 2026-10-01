@@ -72,12 +72,20 @@ def main():
 
     # ۲. پیگیری معاملات باز
     if USE_GIST and dataframes:
-        print(f"\n🔎 Checking open trades...")
-        state, closed_count = update_open_trades(state, dataframes)
-        if closed_count > 0:
-            state_changed = True
-            print(f"✅ {closed_count} trade(s) closed")
+    print(f"\n🔎 Checking open trades...")
+    state, closed_count = update_open_trades(state, dataframes)
+    if closed_count > 0:
+        state_changed = True
+        print(f"✅ {closed_count} trade(s) closed")
 
+        # نوتیف WIN برای معاملات بسته‌شده‌ی جدید
+        for trade in state.get("history", []):
+            if (trade.get("result") == "WIN"
+                    and trade.get("closed_at")
+                    and trade.get("closed_at") > state.get("last_win_notified", "1970-01-01")):
+                send_win_ntfy(trade)
+                state["last_win_notified"] = trade["closed_at"]
+                print(f"🔔 WIN notification sent for {trade.get('side')}")
         # آمار
         stats = calculate_win_stats(state.get("history", []))
         print(f"\n📊 Stats: {stats['wins']}W / {stats['losses']}L | "
