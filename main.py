@@ -87,7 +87,7 @@ def main():
         except Exception as e:
             print(f"❌ {tf} error: {e}")
 
-    # ذخیره state اگه قیمت جدید اومده
+    # اگه قیمت جدید ذخیره شده، state رو ذخیره کن
     if "current_price" in state and "price_updated_at" in state:
         state_changed = True
 
