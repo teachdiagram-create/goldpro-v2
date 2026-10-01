@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoldPro — تحلیل آماری</title>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Vazirmatn', sans-serif;
+    background: linear-gradient(135deg, #0a0e1a 0%, #1a1f35 100%);
+    color: #e8ecf5;
+    min-height: 100vh;
+    padding: 20px;
+    line-height: 1.7;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  header { text-align: center; padding: 20px 0; margin-bottom: 20px; }
+  h1 {
+    font-size: 2.2rem; font-weight: 800;
+    background: linear-gradient(135deg, #ffd700, #f5b041, #ffed4e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  .subtitle { color: #8892b0; font-size: 0.95rem; }
+
+  .back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    color: #ffd700;
+    text-decoration: none;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    transition: all 0.2s;
+  }
+  .back-btn:hover {
+    background: rgba(255, 215, 0, 0.2);
+    transform: translateX(5px);
+  }
+
+  .status-bar {
+    display: inline-block;
+    padding: 6px 16px;
+    background: rgba(0, 255, 100, 0.1);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    margin-bottom: 20px;
+  }
+  .status-bar.error {
+    background: rgba(255, 80, 80, 0.1);
+    color: #f87171;
+    border-color: rgba(248, 113, 113, 0.3);
+  }
+
+  .stats-mini {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .stat-mini {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 215, 0, 0.15);
+    border-radius: 12px;
+    padding: 16px 12px;
+    text-align: center;
+  }
+  .stat-mini .label {
+    font-size: 0.75rem;
+    color: #8892b0;
+    margin-bottom: 6px;
+  }
+  .stat-mini .value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #ffd700;
+  }
+  .stat-mini .value.pos { color: #4ade80; }
+  .stat-mini .value.neg { color: #f87171; }
+  .stat-mini .value.small { font-size: 1.1rem; }
+
+  .card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 215, 0, 0.15);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+    backdrop-filter: blur(10px);
+  }
+  .card h2 {
+    font-size: 1.1rem;
+    color: #ffd700;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.15);
+  }
+  .card p.hint {
+    color: #8892b0;
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 240px;
+  }
+
+  /* Heatmap */
+  .heatmap {
+    display: grid;
+    grid-template-columns: 60px repeat(24, 1fr);
+    gap: 2px;
+    font-size: 0.7rem;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .heatmap-cell {
+    aspect-ratio: 1;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #8892b0;
+    font-size: 0.65rem;
+    transition: transform 0.15s;
+    cursor: pointer;
+    min-width: 22px;
+  }
+  .heatmap-cell:hover {
+    transform: scale(1.2);
+    z-index: 10;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+  }
+  .heatmap-cell.header {
+    color: #ffd700;
+    font-weight: 700;
+    font-size: 0.65rem;
+    background: transparent !important;
+    cursor: default;
+  }
+  .heatmap-cell.header:hover { transform: none; }
+  .heatmap-cell.day-label {
+    color: #ffd700;
+    font-weight: 700;
+    font-size: 0.7rem;
+    background: transparent !important;
+    justify-content: flex-end;
+    padding-left: 6px;
+    cursor: default;
+  }
+  .heatmap-cell.day-label:hover { transform: none; }
+  .heatmap-cell.empty { background: rgba(255,255,255,0.02); }
+  .heatmap-cell.win-1 { background: rgba(74, 222, 128, 0.25); }
+  .heatmap-cell.win-2 { background: rgba(74, 222, 128, 0.5); }
+  .heatmap-cell.win-3 { background: rgba(74, 222, 128, 0.75); }
+  .heatmap-cell.win-4 { background: rgba(74, 222, 128, 1); color: #0a0e1a; }
+  .heatmap-cell.loss-1 { background: rgba(248, 113, 113, 0.25); }
+  .heatmap-cell.loss-2 { background: rgba(248, 113, 113, 0.5); }
+  .heatmap-cell.loss-3 { background: rgba(248, 113, 113, 0.75); }
+  .heatmap-cell.loss-4 { background: rgba(248, 113, 113, 1); }
+  .heatmap-cell.mixed { background: rgba(255, 215, 0, 0.4); }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 12px;
+    font-size: 0.75rem;
+    color: #8892b0;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-box {
+    width: 14px; height: 14px;
+    border-radius: 3px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  th, td {
+    padding: 10px 8px;
+    text-align: right;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  th {
+    color: #8892b0;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+  tbody tr:hover { background: rgba(255, 215, 0, 0.05); }
+  .pos { color: #4ade80; font-weight: 700; }
+  .neg { color: #f87171; font-weight: 700; }
+
+  .empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #8892b0;
+    font-size: 0.95rem;
+  }
+
+  footer {
+    text-align: center;
+    padding: 30px 0;
+    color: #4a5578;
+    font-size: 0.85rem;
+  }
+  @media (max-width: 600px) {
+    h1 { font-size: 1.7rem; }
+    .stat-mini .value { font-size: 1.2rem; }
+    .chart-wrap { height: 200px; }
+    .heatmap {
+      grid-template-columns: 50px repeat(24, 1fr);
+      font-size: 0.6rem;
+    }
+    .heatmap-cell { min-width: 18px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>📊 تحلیل آماری</h1>
+    <div class="subtitle">GoldPro V2 — آمار پیشرفته</div>
+  </header>
+
+  <a href="./index.html" class="back-btn">← بازگشت به داشبورد</a>
+
+  <div style="text-align: center;">
+    <div id="status" class="status-bar">⏳ در حال بارگذاری...</div>
+  </div>
+
+  <!-- خلاصه -->
+  <div class="stats-mini">
+    <div class="stat-mini">
+      <div class="label">🎯 کل معاملات</div>
+      <div class="value" id="total">-</div>
+    </div>
+    <div class="stat-mini">
+      <div class="label">🏆 برد / ❌ باخت</div>
+      <div class="value small" id="wl">-</div>
+    </div>
+    <div class="stat-mini">
+      <div class="label">💰 سود کل</div>
+      <div class="value pos" id="pnl">-</div>
+    </div>
+    <div class="stat-mini">
+      <div class="label">📊 میانگین سود</div>
+      <div class="value pos" id="avg">-</div>
+    </div>
+  </div>
+
+  <!-- بهترین روز -->
+  <div class="card">
+    <h2>🥇 بهترین و بدترین روزها</h2>
+    <div class="stats-mini" style="margin-bottom: 0;">
+      <div class="stat-mini">
+        <div class="label">🥇 بهترین روز</div>
+        <div class="value small pos" id="best-day">-</div>
+      </div>
+      <div class="stat-mini">
+        <div class="label">📉 بدترین روز</div>
+        <div class="value small neg" id="worst-day">-</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- نمودار روزهای هفته -->
+  <div class="card">
+    <h2>📅 عملکرد به تفکیک روز هفته</h2>
+    <div class="chart-wrap"><canvas id="dayChart"></canvas></div>
+  </div>
+
+  <!-- نمودار ساعت‌های روز -->
+  <div class="card">
+    <h2>🕐 عملکرد به تفکیک ساعت (UTC)</h2>
+    <div class="chart-wrap"><canvas id="hourChart"></canvas></div>
+  </div>
+
+  <!-- نمودار تایم‌فریم -->
+  <div class="card">
+    <h2>⏱ مقایسه تایم‌فریم‌ها</h2>
+    <div class="chart-wrap"><canvas id="tfCompareChart"></canvas></div>
+  </div>
+
+  <!-- Heatmap -->
+  <div class="card">
+    <h2>🔥 نقشه حرارتی (روز × ساعت)</h2>
+    <p class="hint">🔴 = باخت | 🟢 = برد | شدت رنگ = تعداد معاملات</p>
+    <div class="heatmap" id="heatmap"></div>
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-box" style="background: rgba(74, 222, 128, 0.75);"></div>
+        <span>برد</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-box" style="background: rgba(248, 113, 113, 0.75);"></div>
+        <span>باخت</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-box" style="background: rgba(255, 215, 0, 0.4);"></div>
+        <span>مختلط</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-box" style="background: rgba(255,255,255,0.02);"></div>
+        <span>بدون معامله</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- جدول -->
+  <div class="card">
+    <h2>📋 آمار تفصیلی روزها</h2>
+    <div id="table-wrap">
+      <div class="empty">⏳ در حال بارگذاری...</div>
+    </div>
+  </div>
+
+  <footer>
+    GoldPro V2 • تحلیل آماری
+    <div id="updated" style="margin-top: 8px; opacity: 0.6;"></div>
+  </footer>
+</div>
+<script>
+const GIST_ID = "da4184ca28cfa99438719f3e331c08b3";
+const GIST_API = "https://api.github.com/gists/" + GIST_ID;
+
+const PERSIAN_DAYS = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه"];
+const PERSIAN_DAYS_SHORT = ["ی", "د", "س", "چ", "پ", "ج", "ش"];
+
+let dayChart = null;
+let hourChart = null;
+let tfCompareChart = null;
+
+function setStatus(text, isError = false) {
+  const el = document.getElementById("status");
+  el.textContent = text;
+  el.className = "status-bar" + (isError ? " error" : "");
+}
+
+async function loadStats() {
+  setStatus("⏳ در حال بارگذاری...");
+  try {
+    const res = await fetch(GIST_API, {
+      headers: { "Accept": "application/vnd.github+json" }
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const gistData = await res.json();
+    const files = gistData.files || {};
+    const stateFile = files["goldpro-state.json"];
+    if (!stateFile) throw new Error("state not found");
+    const data = JSON.parse(stateFile.content);
+    const history = data.history || [];
+
+    if (history.length === 0) {
+      setStatus("📭 هیچ معامله‌ای موجود نیست");
+      return;
+    }
+
+    renderSummary(history);
+    renderBestWorst(history);
+    renderDayChart(history);
+    renderHourChart(history);
+    renderTfCompare(history);
+    renderHeatmap(history);
+    renderTable(history);
+
+    setStatus(`✅ ${history.length} معامله آنالیز شد`);
+    document.getElementById("updated").textContent =
+      "آخرین بروزرسانی: " + new Date().toLocaleTimeString("fa-IR");
+  } catch (err) {
+    console.error(err);
+    setStatus("❌ خطا: " + err.message, true);
+  }
+}
+
+function renderSummary(history) {
+  const wins = history.filter(h => h.result === "WIN").length;
+  const losses = history.filter(h => h.result === "LOSS").length;
+  const totalPnl = history.reduce((s, h) => s + (h.pnl || 0), 0);
+  const closed = wins + losses;
+  const avgPnl = closed > 0 ? totalPnl / closed : 0;
+
+  document.getElementById("total").textContent = history.length;
+  document.getElementById("wl").textContent = `${wins} / ${losses}`;
+  const pnlEl = document.getElementById("pnl");
+  pnlEl.textContent = (totalPnl >= 0 ? "+" : "") + totalPnl.toFixed(2);
+  pnlEl.className = "value " + (totalPnl >= 0 ? "pos" : "neg");
+  const avgEl = document.getElementById("avg");
+  avgEl.textContent = (avgPnl >= 0 ? "+" : "") + avgPnl.toFixed(2);
+  avgEl.className = "value " + (avgPnl >= 0 ? "pos" : "neg");
+}
+
+function renderBestWorst(history) {
+  const dayStats = getDayStats(history);
+  let best = null, worst = null;
+  Object.values(dayStats).forEach(d => {
+    if (d.total === 0) return;
+    if (!best || d.pnl > best.pnl) best = d;
+    if (!worst || d.pnl < worst.pnl) worst = d;
+  });
+
+  if (best) {
+    document.getElementById("best-day").textContent =
+      `${best.name} (${best.wins}W/${best.losses}L • ${best.pnl >= 0 ? '+' : ''}${best.pnl.toFixed(1)})`;
+  } else {
+    document.getElementById("best-day").textContent = "—";
+  }
+  if (worst) {
+    document.getElementById("worst-day").textContent =
+      `${worst.name} (${worst.wins}W/${worst.losses}L • ${worst.pnl >= 0 ? '+' : ''}${worst.pnl.toFixed(1)})`;
+  } else {
+    document.getElementById("worst-day").textContent = "—";
+  }
+}
+
+function getDayStats(history) {
+  const days = {};
+  PERSIAN_DAYS.forEach((name, i) => {
+    days[i] = { name, total: 0, wins: 0, losses: 0, pnl: 0 };
+  });
+  history.forEach(h => {
+    if (!h.sent_at) return;
+    const d = new Date(h.sent_at + "Z");
+    const dayIdx = d.getDay();
+    days[dayIdx].total++;
+    if (h.result === "WIN") days[dayIdx].wins++;
+    else if (h.result === "LOSS") days[dayIdx].losses++;
+    days[dayIdx].pnl += (h.pnl || 0);
+  });
+  return days;
+}
+
+function renderDayChart(history) {
+  const days = getDayStats(history);
+
+  const labels = [];
+  const data = [];
+  const colors = [];
+
+  for (let i = 0; i < 7; i++) {
+    const d = days[i];
+    labels.push(d.name);
+    data.push(round2(d.pnl));
+    colors.push(d.pnl >= 0 ? "rgba(74, 222, 128, 0.7)" : "rgba(248, 113, 113, 0.7)");
+  }
+
+  if (dayChart) dayChart.destroy();
+  const ctx = document.getElementById("dayChart").getContext("2d");
+  dayChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        label: "سود/زیان",
+        data,
+        backgroundColor: colors,
+        borderColor: colors.map(c => c.replace("0.7", "1")),
+        borderWidth: 2,
+        borderRadius: 8,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "rgba(20, 26, 46, 0.95)",
+          titleColor: "#ffd700",
+          bodyColor: "#e8ecf5",
+          titleFont: { family: "Vazirmatn" },
+          bodyFont: { family: "Vazirmatn" },
+          callbacks: {
+            label: c => {
+              const i = c.dataIndex;
+              const d = days[i];
+              return [
+                `سود: ${d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)}`,
+                `برد: ${d.wins} | باخت: ${d.losses}`
+              ];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { color: "#b8c1d9", font: { family: "Vazirmatn" } }, grid: { display: false } },
+        y: { ticks: { color: "#b8c1d9", font: { family: "Vazirmatn" } }, grid: { color: "rgba(255,255,255,0.05)" } }
+      }
+    }
+  });
+}
+
+function renderHourChart(history) {
+  const hours = {};
+  for (let i = 0; i < 24; i++) hours[i] = { total: 0, wins: 0, losses: 0, pnl: 0 };
+  history.forEach(h => {
+    if (!h.sent_at) return;
+    const d = new Date(h.sent_at + "Z");
+    const hh = d.getUTCHours();
+    hours[hh].total++;
+    if (h.result === "WIN") hours[hh].wins++;
+    else if (h.result === "LOSS") hours[hh].losses++;
+    hours[hh].pnl += (h.pnl || 0);
+  });
+
+  const labels = [];
+  const data = [];
+  const colors = [];
+  for (let i = 0; i < 24; i++) {
+    labels.push(i.toString().padStart(2, "0"));
+    data.push(round2(hours[i].pnl));
+    colors.push(hours[i].pnl >= 0 ? "rgba(74, 222, 128, 0.7)" : "rgba(248, 113, 113, 0.7)");
+  }
+
+  if (hourChart) hourChart.destroy();
+  const ctx = document.getElementById("hourChart").getContext("2d");
+  hourChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [{
+        data,
+        backgroundColor: colors,
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: "#b8c1d9", font: { family: "Vazirmatn", size: 10 } }, grid: { display: false } },
+        y: { ticks: { color: "#b8c1d9" }, grid: { color: "rgba(255,255,255,0.05)" } }
+      }
+    }
+  });
+}
+
+function renderTfCompare(history) {
+  const tfs = {};
+  history.forEach(h => {
+    const tf = h.timeframe || "?";
+    if (!tfs[tf]) tfs[tf] = { wins: 0, losses: 0, pnl: 0 };
+    if (h.result === "WIN") tfs[tf].wins++;
+    else if (h.result === "LOSS") tfs[tf].losses++;
+    tfs[tf].pnl += (h.pnl || 0);
+  });
+
+  const labels = Object.keys(tfs);
+  const winRates = labels.map(t => {
+    const s = tfs[t];
+    const total = s.wins + s.losses;
+    return total > 0 ? round2(s.wins / total * 100) : 0;
+  });
+  const pnls = labels.map(t => round2(tfs[t].pnl));
+
+  if (tfCompareChart) tfCompareChart.destroy();
+  const ctx = document.getElementById("tfCompareChart").getContext("2d");
+  tfCompareChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "نرخ برد (%)",
+          data: winRates,
+          backgroundColor: "rgba(74, 222, 128, 0.7)",
+          yAxisID: "y",
+          borderRadius: 8,
+        },
+        {
+          label: "سود",
+          data: pnls,
+          backgroundColor: "rgba(255, 215, 0, 0.7)",
+          yAxisID: "y1",
+          borderRadius: 8,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: { color: "#e8ecf5", font: { family: "Vazirmatn" }, padding: 14 }
+        }
+      },
+      scales: {
+        x: { ticks: { color: "#b8c1d9", font: { family: "Vazirmatn" } }, grid: { display: false } },
+        y: { position: "right", ticks: { color: "#4ade80" }, grid: { color: "rgba(255,255,255,0.05)" }, max: 100 },
+        y1: { position: "left", ticks: { color: "#ffd700" }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function renderHeatmap(history) {
+  const grid = {};
+  history.forEach(h => {
+    if (!h.sent_at) return;
+    const d = new Date(h.sent_at + "Z");
+    const dayIdx = d.getDay();
+    const hh = d.getUTCHours();
+    const key = dayIdx + "-" + hh;
+    if (!grid[key]) grid[key] = { wins: 0, losses: 0 };
+    if (h.result === "WIN") grid[key].wins++;
+    else if (h.result === "LOSS") grid[key].losses++;
+  });
+
+  let html = '<div class="heatmap-cell header"></div>';
+  for (let i = 0; i < 24; i++) {
+    html += `<div class="heatmap-cell header">${i}</div>`;
+  }
+
+  for (let d = 0; d < 7; d++) {
+    html += `<div class="heatmap-cell day-label">${PERSIAN_DAYS[d]}</div>`;
+    for (let hh = 0; hh < 24; hh++) {
+      const key = d + "-" + hh;
+      const cell = grid[key];
+      let cls = "empty";
+      let label = "";
+
+      if (cell) {
+        const total = cell.wins + cell.losses;
+        label = total > 0 ? total : "";
+        if (cell.wins > 0 && cell.losses > 0) {
+          cls = "mixed";
+        } else if (cell.wins > 0) {
+          cls = cell.wins >= 3 ? "win-3" : "win-2";
+        } else {
+          cls = cell.losses >= 3 ? "loss-3" : "loss-2";
+        }
+      }
+
+      const tooltip = cell
+        ? `${PERSIAN_DAYS[d]} ساعت ${hh} UTC — برد: ${cell.wins}، باخت: ${cell.losses}`
+        : `${PERSIAN_DAYS[d]} ساعت ${hh} — بدون معامله`;
+
+      html += `<div class="heatmap-cell ${cls}" title="${tooltip}">${label}</div>`;
+    }
+  }
+
+  document.getElementById("heatmap").innerHTML = html;
+}
+
+function renderTable(history) {
+  const days = getDayStats(history);
+  let html = '<table><thead><tr>' +
+    '<th>روز</th><th>کل</th><th>برد</th><th>باخت</th><th>نرخ برد</th><th>سود</th></tr></thead><tbody>';
+
+  for (let i = 0; i < 7; i++) {
+    const d = days[i];
+    if (d.total === 0) continue;
+    const wr = (d.wins + d.losses) > 0 ? round2(d.wins / (d.wins + d.losses) * 100) : 0;
+    const pnlCls = d.pnl >= 0 ? "pos" : "neg";
+    html += `<tr>
+      <td>${d.name}</td>
+      <td>${d.total}</td>
+      <td class="pos">${d.wins}</td>
+      <td class="neg">${d.losses}</td>
+      <td>${wr}%</td>
+      <td class="${pnlCls}">${d.pnl >= 0 ? '+' : ''}${d.pnl.toFixed(2)}</td>
+    </tr>`;
+  }
+
+  html += '</tbody></table>';
+  document.getElementById("wrap").innerHTML = html;
+}
+
+function round2(n) { return Math.round(n * 100) / 100; }
+
+loadStats();
+setInterval(loadStats, 120000);
+</script>
+</body>
+</html>
