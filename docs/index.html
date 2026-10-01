@@ -1071,8 +1071,6 @@ setInterval(updateClock, 1000);
 setInterval(updateCountdown, 1000);
 updateClock();
 
-loadData();
-setInterval(loadData, 60000);
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
