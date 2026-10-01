@@ -42,6 +42,9 @@ SL_ATR_MULT = 2.5
 TP_ATR_MULT = 1.5
 
 SIGNAL_COOLDOWN_MIN = 60
+# ==== Ntfy ====
+NTFY_TOPIC = "goldpro_roohollah_2026"
+NTFY_ENABLED = True
 
 STATE_FILE = "state.json"
 
