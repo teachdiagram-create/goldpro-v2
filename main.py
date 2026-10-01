@@ -1,3 +1,4 @@
+from datetime import datetime
 from src.config import TIMEFRAMES, USE_GIST
 from src.data_fetcher import fetch_ohlc
 from src.indicators import add_indicators
@@ -12,19 +13,14 @@ if USE_GIST:
 else:
     def load_state():
         return {"last_signals": {}, "history": []}
-
     def save_state(state):
         return True
-
     def should_send(signal, state):
         return True
-
     def mark_sent(signal, state):
         return state
-
     def update_open_trades(state, dataframes):
         return state, 0
-
     def calculate_win_stats(history):
         return {}
 
@@ -34,6 +30,16 @@ def process_timeframe(tf, state):
 
     df = fetch_ohlc(tf)
     df = add_indicators(df)
+
+    # ذخیره قیمت لحظه‌ای از M5
+    if tf == "5min" and len(df) > 1:
+        try:
+            last_close = float(df.iloc[-1]["close"])
+            state["current_price"] = last_close
+            state["price_updated_at"] = datetime.utcnow().isoformat()
+            print(f"💰 Current XAU/USD: {last_close:.2f} (from M5)")
+        except Exception as e:
+            print(f"⚠️ Price extract failed: {e}")
 
     signal = evaluate_signal(df, timeframe=tf)
 
@@ -80,6 +86,10 @@ def main():
                 state_changed = True
         except Exception as e:
             print(f"❌ {tf} error: {e}")
+
+    # ذخیره state اگه قیمت جدید اومده
+    if "current_price" in state and "price_updated_at" in state:
+        state_changed = True
 
     if USE_GIST and dataframes:
         print(f"\n🔎 Checking open trades...")
