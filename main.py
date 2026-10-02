@@ -5,7 +5,7 @@ from src.indicators import add_indicators
 from src.signal_logic import evaluate_signal
 from src.telegram_bot import send_telegram, format_message
 from src.notifier import send_signal_ntfy, send_win_ntfy
-
+from src.sms_sender import send_signal_sms, send_win_sms
 
 if USE_GIST:
     from src.state_manager import load_state, save_state, should_send, mark_sent
