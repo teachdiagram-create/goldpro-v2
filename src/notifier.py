@@ -2,7 +2,6 @@
 ارسال نوتیفیکیشن از طریق Ntfy.sh
 """
 import requests
-from email.header import Header
 from src.config import NTFY_TOPIC, NTFY_ENABLED
 
 
@@ -18,9 +17,14 @@ def send_ntfy(title: str, message: str, priority: int = 4, tags: list = None):
     try:
         headers = {
             "Priority": str(priority),
-            "Title": str(Header(title, 'utf-8')),
             "Content-Type": "text/plain; charset=utf-8",
         }
+
+        # Ntfy برای UTF-8 باید از X-Title استفاده کنه
+        if title:
+            # Encode UTF-8 as latin-1 bytes (trick for requests)
+            headers["X-Title"] = title.encode('utf-8').decode('latin-1')
+
         if tags:
             headers["Tags"] = ",".join(tags)
 
@@ -30,8 +34,14 @@ def send_ntfy(title: str, message: str, priority: int = 4, tags: list = None):
             headers=headers,
             timeout=10
         )
-        r.raise_for_status()
+
+        if r.status_code != 200:
+            print(f"[!] Ntfy HTTP {r.status_code}: {r.text[:200]}")
+            return False
+
+        print(f"[Ntfy] Sent OK: {title[:40]}")
         return True
+
     except Exception as e:
         print(f"[!] Ntfy error: {e}")
         return False
