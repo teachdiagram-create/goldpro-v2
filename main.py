@@ -7,6 +7,7 @@ from src.telegram_bot import send_telegram, format_message
 from src.notifier import send_signal_ntfy, send_win_ntfy
 from src.sms_sender import send_signal_sms, send_win_sms
 
+
 if USE_GIST:
     from src.state_manager import load_state, save_state, should_send, mark_sent
     from src.trade_tracker import update_open_trades, calculate_win_stats
@@ -58,21 +59,25 @@ def process_timeframe(tf, state):
         state = mark_sent(signal, state)
         print(f"📨 {tf}: Telegram sent")
 
-        if send_signal_ntfy(signal):
-    print(f"🔔 {tf}: Ntfy sent")
-else:
-    print(f"⚠️ {tf}: Ntfy failed")
+        # Ntfy
+        try:
+            if send_signal_ntfy(signal):
+                print(f"🔔 {tf}: Ntfy sent")
+            else:
+                print(f"⚠️ {tf}: Ntfy failed")
+        except Exception as e:
+            print(f"⚠️ {tf}: Ntfy error: {e}")
 
-# SMS
-try:
-    if send_signal_sms(signal):
-        print(f"📲 {tf}: SMS sent")
-    else:
-        print(f"⚠️ {tf}: SMS failed")
-except Exception as e:
-    print(f"⚠️ {tf}: SMS error: {e}")
+        # SMS
+        try:
+            if send_signal_sms(signal):
+                print(f"📲 {tf}: SMS sent")
+            else:
+                print(f"⚠️ {tf}: SMS failed")
+        except Exception as e:
+            print(f"⚠️ {tf}: SMS error: {e}")
 
-return state, True, df
+        return state, True, df
     else:
         print(f"❌ {tf}: Telegram failed")
         return state, False, df
@@ -96,10 +101,6 @@ def main():
         except Exception as e:
             print(f"❌ {tf} error: {e}")
 
-    # اگه قیمت جدید ذخیره شده، state رو ذخیره کن
-    if "current_price" in state and "price_updated_at" in state:
-        state_changed = True
-
     if USE_GIST and dataframes:
         print(f"\n🔎 Checking open trades...")
         state, closed_count = update_open_trades(state, dataframes)
@@ -108,16 +109,16 @@ def main():
             print(f"✅ {closed_count} trade(s) closed")
 
             for trade in state.get("history", []):
-    if (trade.get("result") == "WIN"
-            and trade.get("closed_at")
-            and trade.get("closed_at") > state.get("last_win_notified", "1970-01-01")):
-        send_win_ntfy(trade)
-        try:
-            send_win_sms(trade)
-        except Exception as e:
-            print(f"⚠️ WIN SMS error: {e}")
-        state["last_win_notified"] = trade["closed_at"]
-        print(f"🔔 WIN notifications sent")
+                if (trade.get("result") == "WIN"
+                        and trade.get("closed_at")
+                        and trade.get("closed_at") > state.get("last_win_notified", "1970-01-01")):
+                    send_win_ntfy(trade)
+                    try:
+                        send_win_sms(trade)
+                    except Exception as e:
+                        print(f"⚠️ WIN SMS error: {e}")
+                    state["last_win_notified"] = trade["closed_at"]
+                    print(f"🔔 WIN notifications sent")
 
         stats = calculate_win_stats(state.get("history", []))
         if stats:
