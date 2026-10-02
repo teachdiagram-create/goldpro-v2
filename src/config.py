@@ -45,6 +45,11 @@ SIGNAL_COOLDOWN_MIN = 60
 # ==== Ntfy ====
 NTFY_TOPIC = "goldpro_roohollah_2026"
 NTFY_ENABLED = True
+# ==== SMS.ir ====
+SMSIR_API_KEY = os.getenv("SMSIR_API_KEY", "").strip()
+SMSIR_LINE_NUMBER = os.getenv("SMSIR_LINE_NUMBER", "").strip()
+SMSIR_PHONE = os.getenv("SMSIR_PHONE", "").strip()
+SMS_ENABLED = bool(SMSIR_API_KEY and SMSIR_LINE_NUMBER and SMSIR_PHONE)
 
 STATE_FILE = "state.json"
 
