@@ -21,7 +21,7 @@ USE_GIST = bool(GH_GIST_ID and GH_PAT)
 SYMBOL = "XAU/USD"
 OUTPUT_SIZE = 200
 
-TIMEFRAMES = ["5min", "15min"]
+TIMEFRAMES = ["1min", "5min", "15min"]
 
 EMA_FAST = 20
 EMA_SLOW = 50
