@@ -93,19 +93,17 @@ def main():
     dataframes = {}
 
     for tf in TIMEFRAMES:
-        try:
-            state, changed, df = process_timeframe(tf, state)
-            dataframes[tf] = df
-            if changed:
-                state_changed = True
-        except Exception as e:
-            print(f"❌ {tf} error: {e}")
-
-    if USE_GIST and dataframes:
-        print(f"\n🔎 Checking open trades...")
-        state, closed_count = update_open_trades(state, dataframes)
-        if closed_count > 0:
+    try:
+        state, changed, df = process_timeframe(tf, state)
+        dataframes[tf] = df
+        if changed:
             state_changed = True
+    except Exception as e:
+        print(f"❌ {tf} error: {e}")
+
+# اگه قیمت جدید ذخیره شده، state رو ذخیره کن
+if state.get("current_price") is not None and state.get("price_updated_at") is not None:
+    state_changed = True
             print(f"✅ {closed_count} trade(s) closed")
 
             for trade in state.get("history", []):
