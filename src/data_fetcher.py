@@ -12,6 +12,7 @@ def fetch_ohlc(timeframe: str = "5min") -> pd.DataFrame:
         "outputsize": OUTPUT_SIZE,
         "apikey": TWELVEDATA_KEY,
         "format": "JSON",
+        "timezone": "UTC",     # ← این خط اضافه شد
     }
 
     r = requests.get(url, params=params, timeout=20)
