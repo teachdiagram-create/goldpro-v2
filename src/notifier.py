@@ -46,7 +46,6 @@ def send_ntfy(title: str, message: str, priority: int = 4, tags: list = None):
         print(f"[!] Ntfy error: {e}")
         return False
 
-
 def send_signal_ntfy(signal: dict):
     """ارسال سیگنال به Ntfy"""
     side = signal.get("side", "?")
@@ -62,11 +61,9 @@ def send_signal_ntfy(signal: dict):
     title = f"{emoji} سیگنال {side} — {tf}"
 
     message = (
-        f"💵 ورود: {signal.get('entry', '?')}\n"
-        f"🛑 SL: {signal.get('sl', '?')}\n"
-        f"🎯 TP: {signal.get('tp', '?')}\n"
         f"📊 RSI: {signal.get('rsi', '?')} | ADX: {signal.get('adx', '?')}\n"
-        f"📈 ATR: {signal.get('atr', '?')}"
+        f"📈 ATR: {signal.get('atr', '?')}\n"
+        f"⏰ {signal.get('time', '?')}"
     )
 
     return send_ntfy(title, message, priority=5, tags=tags)
