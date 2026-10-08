@@ -58,10 +58,8 @@ def send_signal_sms(signal: dict):
 
     message = (
         f"{emoji} GoldPro: {side} {tf}\n"
-        f"Entry: {signal.get('entry', '?')}\n"
-        f"SL: {signal.get('sl', '?')}\n"
-        f"TP: {signal.get('tp', '?')}\n"
-        f"RSI: {signal.get('rsi', '?')} | ADX: {signal.get('adx', '?')}"
+        f"RSI: {signal.get('rsi', '?')} | ADX: {signal.get('adx', '?')}\n"
+        f"ATR: {signal.get('atr', '?')}"
     )
 
     return send_sms(message)
