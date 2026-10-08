@@ -8,30 +8,18 @@ def _emoji(side: str) -> str:
 
 def format_message(sig: dict) -> str:
     tf = sig.get("timeframe", "5min").replace("min", "M")
-
-    # محاسبه R:R
-    rr_text = ""
-    if sig.get("entry") and sig.get("sl") and sig.get("tp"):
-        risk = abs(sig["entry"] - sig["sl"])
-        reward = abs(sig["tp"] - sig["entry"])
-        if risk > 0:
-            rr_text = f"\n⚖️ R:R = 1 : {reward / risk:.2f}"
-
     return (
         f"{_emoji(sig['side'])} <b>GOLD {sig['side']} — {tf}</b>\n"
         f"━━━━━━━━━━━━━━━━━━\n"
-        f"💵 Entry: <b>{sig['entry']}</b>\n"
-        f"🛑 SL: {sig['sl']}\n"
-        f"🎯 TP: {sig['tp']}"
-        f"{rr_text}\n"
         f"📊 RSI: {sig.get('rsi', 'N/A')} | ADX: {sig.get('adx', 'N/A')}\n"
         f"📈 ATR: {sig.get('atr', 'N/A')}\n"
-        f"⏰ {sig.get('time', 'N/A')} UTC"
+        f"⏰ {sig.get('time', 'N/A')} UTC\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"<i>SL/TP بر اساس ATR و قیمت بروکر شما</i>"
     )
 
 
 def _dashboard_keyboard():
-    """دکمه‌های inline برای تلگرام"""
     return {
         "inline_keyboard": [
             [
