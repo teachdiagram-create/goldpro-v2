@@ -49,7 +49,6 @@ def send_sms(message: str) -> bool:
         print(f"[!] SMS exception: {e}")
         return False
 
-
 def send_signal_sms(signal: dict):
     """SMS سیگنال جدید"""
     side = signal.get("side", "?")
@@ -58,12 +57,13 @@ def send_signal_sms(signal: dict):
 
     message = (
         f"{emoji} GoldPro: {side} {tf}\n"
-        f"RSI: {signal.get('rsi', '?')} | ADX: {signal.get('adx', '?')}\n"
-        f"ATR: {signal.get('atr', '?')}"
+        f"Entry: {signal.get('entry', '?')}\n"
+        f"SL: {signal.get('sl', '?')}\n"
+        f"TP: {signal.get('tp', '?')}\n"
+        f"RSI: {signal.get('rsi', '?')} | ADX: {signal.get('adx', '?')}"
     )
 
     return send_sms(message)
-
 
 def send_win_sms(trade: dict):
     """SMS برد"""
