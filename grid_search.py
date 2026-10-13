@@ -1,6 +1,5 @@
 """
 GoldPro V2 - Grid Search Optimization (v3-aligned)
-بهینه‌سازی پارامترهای v3 روی داده تاریخی
 """
 import itertools
 import requests
@@ -12,13 +11,15 @@ from src.config import (
     ATR_MIN_USD, ATR_MAX_USD,
     MIN_SL_USD, MIN_TP_USD,
     SL_STRUCTURE_BUFFER, BLOCKED_HOURS_UTC,
-    compute_atr_effective,
 )
 from src.indicators import add_indicators
 from src.strategy import detect_double_top_sell, detect_double_bottom_buy
 from src.telegram_bot import send_telegram
 
 
+# ══════════════════════════════════════════════════════════════
+#  Data
+# ══════════════════════════════════════════════════════════════
 def fetch_history(timeframe: str, outputsize: int = 5000) -> pd.DataFrame:
     url = "https://api.twelvedata.com/time_series"
     params = {
@@ -42,30 +43,27 @@ def fetch_history(timeframe: str, outputsize: int = 5000) -> pd.DataFrame:
 
 
 def is_blocked_hour(dt) -> bool:
-    """چک کن ساعت UTC ممنوعه هست یا نه."""
     try:
         return dt.hour in BLOCKED_HOURS_UTC
     except Exception:
         return False
 
 
+# ══════════════════════════════════════════════════════════════
+#  SL/TP (v3 logic — parameterized for grid)
+# ══════════════════════════════════════════════════════════════
 def compute_sl_tp_v3(side, price, atr, adx_value,
                      recent_high=None, recent_low=None,
                      sl_base_mult=1.5, tp_mult=2.5,
                      adx_threshold=40, adx_boost=1.5):
-    """
-    دقیقاً همون منطق v3، ولی پارامترها قابل تنظیم.
-    """
     if atr is None or atr <= 0 or price <= 0:
         return None, None, None, None, None
 
-    # ADX-aware ضریب
     if adx_value is not None and adx_value > adx_threshold:
         sl_mult = sl_base_mult * adx_boost
     else:
         sl_mult = sl_base_mult
 
-    # --- SL ---
     if side == "SELL":
         sl_structure = (recent_high + SL_STRUCTURE_BUFFER * atr
                         if recent_high else price + MIN_SL_USD)
@@ -85,7 +83,6 @@ def compute_sl_tp_v3(side, price, atr, adx_value,
     else:
         return None, None, None, None, None
 
-    # --- TP ---
     tp_dist = max(tp_mult * atr, MIN_TP_USD)
     tp = price + tp_dist if side == "BUY" else price - tp_dist
 
@@ -93,6 +90,9 @@ def compute_sl_tp_v3(side, price, atr, adx_value,
     return sl, tp, sl_dist, tp_dist, rr
 
 
+# ══════════════════════════════════════════════════════════════
+#  Simulate
+# ══════════════════════════════════════════════════════════════
 def simulate_trade(df, entry_idx, side, sl, tp, entry_price, max_bars=200):
     for i in range(entry_idx + 1, min(entry_idx + max_bars, len(df))):
         bar = df.iloc[i]
@@ -120,9 +120,6 @@ def run_backtest(df, adx_min, sl_mult, tp_mult,
                  adx_threshold=40, adx_boost=1.5,
                  max_bars_since=2, atr_min=ATR_MIN_USD, atr_max=ATR_MAX_USD,
                  block_hours=None):
-    """
-    بک‌تست هم‌راستا با v3.
-    """
     if block_hours is None:
         block_hours = BLOCKED_HOURS_UTC
 
@@ -143,23 +140,19 @@ def run_backtest(df, adx_min, sl_mult, tp_mult,
             i += 1
             continue
 
-        # ── ATR clamp ──
         if atr_raw < atr_min:
             i += 1
             continue
         atr_ = min(atr_raw, atr_max)
 
-        # ── ADX filter ──
         if adx_ < adx_min:
             i += 1
             continue
 
-        # ── Blocked hours ──
         if is_blocked_hour(current["datetime"]):
             i += 1
             continue
 
-        # ── Strategy ──
         rsi_series = window["rsi"].iloc[:-1]
         sell_setup = detect_double_top_sell(rsi_series, max_bars_since_peak=max_bars_since)
         buy_setup = detect_double_bottom_buy(rsi_series, max_bars_since_trough=max_bars_since)
@@ -207,6 +200,9 @@ def run_backtest(df, adx_min, sl_mult, tp_mult,
     return trades
 
 
+# ══════════════════════════════════════════════════════════════
+#  Stats
+# ══════════════════════════════════════════════════════════════
 def calc_stats(trades):
     if not trades:
         return None
@@ -226,8 +222,7 @@ def calc_stats(trades):
         peak = max(peak, v)
         max_dd = max(max_dd, peak - v)
 
-    # میانگین R:R واقعی
-    avg_rr = np.mean([t["rr"] for t in trades]) if trades else 0
+    avg_rr = float(np.mean([t["rr"] for t in trades])) if trades else 0
 
     return {
         "total": len(trades),
@@ -242,7 +237,55 @@ def calc_stats(trades):
     }
 
 
-def main():
+# ══════════════════════════════════════════════════════════════
+#  Quick test - فقط v3 رو تست می‌کنه
+# ══════════════════════════════════════════════════════════════
+def quick_test_v3(timeframe: str = "15min"):
+    print("=" * 60)
+    print(f"🔍 Quick Test: v3 on {timeframe}")
+    print("=" * 60)
+
+    df = fetch_history(timeframe, outputsize=5000)
+    df = add_indicators(df)
+    print(f"📥 Loaded {len(df)} candles")
+    print(f"   Range: {df['datetime'].iloc[0]} → {df['datetime'].iloc[-1]}")
+
+    trades = run_backtest(
+        df,
+        adx_min=15,
+        sl_mult=1.5,
+        tp_mult=2.5,
+        adx_threshold=40,
+        adx_boost=1.5,
+    )
+
+    if not trades:
+        print("\n⚠️ No trades generated!")
+        return None
+
+    stats = calc_stats(trades)
+
+    print("\n" + "─" * 60)
+    print("📊 v3 RESULTS")
+    print("─" * 60)
+    print(f"  Total trades:  {stats['total']}")
+    print(f"  Wins:          {stats['wins']} ✅")
+    print(f"  Losses:        {stats['losses']} ❌")
+    print(f"  Timeouts:      {stats['timeouts']} ⏰")
+    print(f"  Win Rate:      {stats['win_rate']}%")
+    print(f"  Total PnL:     {stats['pnl']:+.2f}")
+    print(f"  Profit Factor: {stats['pf']}")
+    print(f"  Max Drawdown:  {stats['max_dd']:.2f}")
+    print(f"  Avg R:R:       {stats['avg_rr']}")
+    print("─" * 60)
+
+    return stats
+
+
+# ══════════════════════════════════════════════════════════════
+#  Grid Search - کامل
+# ══════════════════════════════════════════════════════════════
+def grid_search():
     print("=" * 70)
     print("🔬 GoldPro V2 - Grid Search (v3-aligned)")
     print("=" * 70)
@@ -255,11 +298,10 @@ def main():
     df = add_indicators(df)
     print(f"📥 Got {len(df)} candles\n")
 
-    # ── شبکه جستجو ──
     adx_values = [15, 20]
-    sl_values = [1.0, 1.5, 2.0]       # پایه (نه 2.5-3.0)
+    sl_values = [1.0, 1.5, 2.0]
     tp_values = [2.0, 2.5, 3.0]
-    boost_values = [1.0, 1.5, 2.0]    # ADX boost
+    boost_values = [1.0, 1.5, 2.0]
 
     results = []
     total_combos = len(adx_values) * len(sl_values) * len(tp_values) * len(boost_values)
@@ -285,7 +327,10 @@ def main():
                 f"DD={stats['max_dd']} avgRR={stats['avg_rr']}"
             )
 
-    # مرتب‌سازی: اول PF، بعد PnL
+    if not results:
+        print("\n⚠️ No results with >= 10 trades")
+        return
+
     results.sort(key=lambda x: (x["pf"], x["pnl"]), reverse=True)
 
     print("\n" + "=" * 70)
@@ -304,59 +349,37 @@ def main():
         print(line)
         lines.append(line)
 
-    # بهترین ترکیب
-    if results:
-        best = results[0]
-        print("\n🥇 BEST:")
-        print(f"   ADX_MIN = {best['adx']}")
-        print(f"   SL_ATR_MULT = {best['sl']}")
-        print(f"   TP_ATR_MULT = {best['tp']}")
-        print(f"   ADX_SL_BOOST = {best['boost']}")
-        print(f"   WR: {best['win_rate']}%  PF: {best['pf']}  avgRR: {best['avg_rr']}")
+    best = results[0]
+    print("\n🥇 BEST:")
+    print(f"   ADX_MIN = {best['adx']}")
+    print(f"   SL_ATR_MULT = {best['sl']}")
+    print(f"   TP_ATR_MULT = {best['tp']}")
+    print(f"   ADX_SL_BOOST = {best['boost']}")
+    print(f"   WR: {best['win_rate']}%  PF: {best['pf']}  avgRR: {best['avg_rr']}")
 
-        lines.append("\n\n🥇 <b>BEST:</b>")
-        lines.append(f"ADX_MIN={best['adx']} SL={best['sl']} TP={best['tp']} Boost={best['boost']}")
-        lines.append(f"WR:{best['win_rate']}% PF:<b>{best['pf']}</b> avgRR:{best['avg_rr']}")
-
-        # ── مقایسه با v3 فعلی ──
-        print("\n📌 Current v3 (for comparison):")
-        print("   SL_ATR_MULT=1.5, TP_ATR_MULT=2.5, ADX_BOOST=1.5, ADX_MIN=15")
-        v3_match = [r for r in results
-                    if r["sl"] == 1.5 and r["tp"] == 2.5
-                    and r["boost"] == 1.5 and r["adx"] == 15]
-        if v3_match:
-            v3 = v3_match[0]
-            print(f"   v3 stats: WR={v3['win_rate']}% PF={v3['pf']} DD={v3['max_dd']} avgRR={v3['avg_rr']}")
-            lines.append(f"\n\n📌 <b>v3 current</b>:")
-            lines.append(f"WR:{v3['win_rate']}% PF:{v3['pf']} avgRR:{v3['avg_rr']}")
+    lines.append("\n\n🥇 <b>BEST:</b>")
+    lines.append(f"ADX_MIN={best['adx']} SL={best['sl']} TP={best['tp']} Boost={best['boost']}")
+    lines.append(f"WR:{best['win_rate']}% PF:<b>{best['pf']}</b> avgRR:{best['avg_rr']}")
 
     print("\n📨 Sending to Telegram...")
     send_telegram("\n".join(lines))
     print("✅ Done")
 
-def quick_test_v3():
-    """تست سریع v3 روی 15min"""
-    print("🔍 Quick test v3...")
-    df = fetch_history("15min", outputsize=5000)
-    df = add_indicators(df)
-    print(f"📥 {len(df)} candles")
 
-    trades = run_backtest(df, adx_min=15, sl_mult=1.5, tp_mult=2.5,
-                          adx_threshold=40, adx_boost=1.5)
-    stats = calc_stats(trades)
-    print("\n" + "="*50)
-    print("v3 RESULT (15min):")
-    print("="*50)
-    for k, v in stats.items():
-        print(f"  {k}: {v}")
-    return stats
-
-
+# ══════════════════════════════════════════════════════════════
+#  Entry point
+# ══════════════════════════════════════════════════════════════
 if __name__ == "__main__":
-    # برای grid search کامل:
-    # main()
+    import sys
 
-    # برای تست سریع v3:
-    quick_test_v3()
-if __name__ == "__main__":
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "quick":
+        quick_test_v3()
+    elif len(sys.argv) > 1 and sys.argv[1] == "grid":
+        grid_search()
+    else:
+        print("Usage:")
+        print("  python grid_search.py quick    → تست سریع v3")
+        print("  python grid_search.py grid     → grid search کامل")
+        print()
+        print("Default: running quick test...")
+        quick_test_v3()
