@@ -42,15 +42,15 @@ RSI_SELL_MIN = 30
 RSI_SELL_MAX = 50
 
 # ==============================================================
-#  SL/TP - Version 3 (ADX-aware)
+#  SL/TP - Version 4 (R:R fix)
 # ==============================================================
 SL_ATR_MULT = 1.5           # پایه (روند عادی)
 TP_ATR_MULT = 2.5           # ثابت
-SL_STRUCTURE_BUFFER = 1.0   # از 0.5 → 1.0
+SL_STRUCTURE_BUFFER = 0.2   # از 1.0 → 0.2 (R:R fix)
 
 # ADX multiplier - روند قوی -> SL بازتر
 ADX_STRONG_THRESHOLD = 40
-ADX_SL_BOOST = 1.5          # ضریب اضافه وقتی ADX > 40
+ADX_SL_BOOST = 1.2          # از 1.5 → 1.2
 
 # محدوده ATR (دلار)
 ATR_MIN_USD = 1.0
@@ -100,9 +100,6 @@ def compute_atr_effective(atr_raw: float) -> float:
 def get_sl_atr_mult(adx_value: float) -> float:
     """
     ضریب SL بر اساس قدرت روند (ADX).
-
-    - ADX > 40  -> روند قوی  -> SL بازتر
-    - ADX <= 40 -> روند عادی -> SL پایه
     """
     if adx_value is not None and adx_value > ADX_STRONG_THRESHOLD:
         return SL_ATR_MULT * ADX_SL_BOOST
@@ -115,9 +112,6 @@ def compute_sl_tp(side: str, price: float, atr: float,
                   recent_low: float = None):
     """
     محاسبه SL/TP با در نظر گرفتن ADX.
-
-    Returns:
-        (sl, tp, sl_dist, tp_dist, rr) یا (None, None, None, None, None)
     """
     if atr is None or atr <= 0 or price is None or price <= 0:
         return None, None, None, None, None
