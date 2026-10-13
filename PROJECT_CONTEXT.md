@@ -37,3 +37,9 @@
       - MIN_SL = 4.5, MIN_TP = 6.5
 
 ## Key settings (v3)
+## Architecture rule
+- برای تغییر استراتژی فقط src/strategy.py رو تغییر بده
+- interface: detect_double_top_sell / detect_double_bottom_buy
+- خروجی: dict با کلیدهای peak1_value, peak2_value, current_rsi
+  (یا trough1_value, trough2_value برای BUY)
+- بقیه‌ی فایل‌ها دست نمی‌خورن
