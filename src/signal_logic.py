@@ -1,16 +1,22 @@
+"""
+Signal Logic - Interface between strategy and infrastructure.
+
+این فایل ثابته. اگه استراتژی عوض شد، این فایل دست نمی‌خوره.
+استراتژی فقط باید دو تا تابع از src/strategy.py بده:
+    detect_double_top_sell(rsi_series) -> setup | None
+    detect_double_bottom_buy(rsi_series) -> setup | None
+"""
 from datetime import datetime, timezone
 
 from src.config import (
     BLOCKED_HOURS_UTC,
-    ATR_MIN_USD, ATR_MAX_USD,
-    ADX_STRONG_THRESHOLD, ADX_SL_BOOST,
-    compute_atr_effective, compute_sl_tp, get_sl_atr_mult,
+    compute_sl_tp,
 )
 from src.strategy import detect_double_top_sell, detect_double_bottom_buy
 
 
 def _is_blocked_hour(dt_str: str) -> bool:
-    """چک کن ساعت UTC جزو ساعت‌های ممنوعه است یا نه."""
+    """چک کن ساعت UTC ممنوعه هست یا نه."""
     try:
         dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
         if dt.tzinfo is None:
@@ -24,33 +30,38 @@ def evaluate_signal(df, timeframe: str = "5min"):
     """
     ارزیابی آخرین کندل بسته‌شده.
 
-    SL: ADX-aware (روند قوی -> بازتر)
-    TP: ATR-based
-    R:R: تضمین >= 1.0
+    اینترفیس خروجی (dict) - ثابت:
+        {
+            "timeframe": str,
+            "side": "BUY" | "SELL",
+            "entry": float,
+            "sl": float,
+            "tp": float,
+            "sl_distance": float,
+            "tp_distance": float,
+            "rr": float,
+            "rsi": float,
+            "adx": float,
+            "atr": float,
+            "time": str,
+            "reason": str,
+        }
+
+    یا None اگه سیگنالی نباشه.
     """
     closed = df.iloc[:-1]
     current = closed.iloc[-1]
-
     rsi_series = closed["rsi"]
 
     price = float(current["close"])
-    atr_raw = float(current["atr"])
+    atr_ = float(current["atr"])
     adx_ = float(current["adx"])
     rsi_ = float(current["rsi"])
-
-    # --- ATR clamp ---
-    atr_ = compute_atr_effective(atr_raw)
-    if atr_ <= 0:
-        return None
-
-    # --- ساعت ممنوعه ---
     dt_str = str(current["datetime"])
+
+    # ── فیلتر ساعت ممنوعه ──
     if _is_blocked_hour(dt_str):
         return None
-
-    # --- ضریب SL بر اساس ADX ---
-    sl_mult = get_sl_atr_mult(adx_)
-    is_strong_trend = adx_ > ADX_STRONG_THRESHOLD
 
     base = {
         "timeframe": timeframe,
@@ -58,19 +69,12 @@ def evaluate_signal(df, timeframe: str = "5min"):
         "adx": round(adx_, 1),
         "atr": round(atr_, 2),
         "time": dt_str,
-        "sl_mult": round(sl_mult, 2),
-        "strong_trend": is_strong_trend,
     }
 
-    # --- SELL: Double Top ---
+    # ── SELL: Double Top ──
     sell_setup = detect_double_top_sell(rsi_series)
     if sell_setup:
-        recent_high = float(closed["high"].tail(20).max())
-        sl, tp, sl_dist, tp_dist, rr = compute_sl_tp(
-            "SELL", price, atr_,
-            adx_value=adx_,
-            recent_high=recent_high,
-        )
+        sl, tp, sd, td, rr = compute_sl_tp("SELL", price, atr_)
         if sl is None:
             return None
 
@@ -80,24 +84,19 @@ def evaluate_signal(df, timeframe: str = "5min"):
             "entry": round(price, 2),
             "sl": sl,
             "tp": tp,
-            "sl_distance": sl_dist,
-            "tp_distance": tp_dist,
+            "sl_distance": sd,
+            "tp_distance": td,
             "rr": rr,
             "reason": (
-                f"RSI double top: {sell_setup['peak1_value']} -> "
+                f"RSI double top: {sell_setup['peak1_value']} → "
                 f"{sell_setup['peak2_value']} (now {sell_setup['current_rsi']})"
             ),
         }
 
-    # --- BUY: Double Bottom ---
+    # ── BUY: Double Bottom ──
     buy_setup = detect_double_bottom_buy(rsi_series)
     if buy_setup:
-        recent_low = float(closed["low"].tail(20).min())
-        sl, tp, sl_dist, tp_dist, rr = compute_sl_tp(
-            "BUY", price, atr_,
-            adx_value=adx_,
-            recent_low=recent_low,
-        )
+        sl, tp, sd, td, rr = compute_sl_tp("BUY", price, atr_)
         if sl is None:
             return None
 
@@ -107,11 +106,11 @@ def evaluate_signal(df, timeframe: str = "5min"):
             "entry": round(price, 2),
             "sl": sl,
             "tp": tp,
-            "sl_distance": sl_dist,
-            "tp_distance": tp_dist,
+            "sl_distance": sd,
+            "tp_distance": td,
             "rr": rr,
             "reason": (
-                f"RSI double bottom: {buy_setup['trough1_value']} -> "
+                f"RSI double bottom: {buy_setup['trough1_value']} → "
                 f"{buy_setup['trough2_value']} (now {buy_setup['current_rsi']})"
             ),
         }
