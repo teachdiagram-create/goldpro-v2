@@ -337,3 +337,19 @@ def main():
 
 if __name__ == "__main__":
     main()
+def quick_test_v3():
+    """تست سریع v3 روی 15min"""
+    print("🔍 Quick test v3...")
+    df = fetch_history("15min", outputsize=5000)
+    df = add_indicators(df)
+    print(f"📥 {len(df)} candles")
+
+    trades = run_backtest(df, adx_min=15, sl_mult=1.5, tp_mult=2.5,
+                          adx_threshold=40, adx_boost=1.5)
+    stats = calc_stats(trades)
+    print("\n" + "="*50)
+    print("v3 RESULT (15min):")
+    print("="*50)
+    for k, v in stats.items():
+        print(f"  {k}: {v}")
+    return stats
