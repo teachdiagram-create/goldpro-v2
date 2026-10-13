@@ -5,7 +5,7 @@ import sys
 def _require(name: str) -> str:
     val = os.getenv(name, "").strip()
     if not val:
-        print(f"❌ Missing required secret: {name}")
+        print(f"Missing required secret: {name}")
         sys.exit(1)
     return val
 
@@ -41,30 +41,31 @@ RSI_BUY_MAX = 70
 RSI_SELL_MIN = 30
 RSI_SELL_MAX = 50
 
-# ══════════════════════════════════════════════════════════════
-#  SL/TP — نسخه اصلاح‌شده  (R:R ≥ 1.5)
-# ══════════════════════════════════════════════════════════════
-SL_ATR_MULT = 1.0          # حداقل فاصله SL از entry (ضریب ATR)
-TP_ATR_MULT = 2.5          # فاصله TP (ضریب ATR)
-SL_STRUCTURE_BUFFER = 0.5  # بافر روی recent_high/low
+# ==============================================================
+#  SL/TP - Version 3 (ADX-aware)
+# ==============================================================
+SL_ATR_MULT = 1.5           # پایه (روند عادی)
+TP_ATR_MULT = 2.5           # ثابت
+SL_STRUCTURE_BUFFER = 1.0   # از 0.5 → 1.0
 
-# محدوده مجاز ATR (دلار) — زیر = بازار مرده، بالا = نوسان خطرناک
+# ADX multiplier - روند قوی -> SL بازتر
+ADX_STRONG_THRESHOLD = 40
+ADX_SL_BOOST = 1.5          # ضریب اضافه وقتی ADX > 40
+
+# محدوده ATR (دلار)
 ATR_MIN_USD = 1.0
 ATR_MAX_USD = 4.0
 
-# حداقل فاصله مطلق SL/TP (دلار)
-MIN_SL_USD = 3.0
-MIN_TP_USD = 4.5
+# حداقل فاصله مطلق (دلار)
+MIN_SL_USD = 4.5
+MIN_TP_USD = 6.5
 
-# ══════════════════════════════════════════════════════════════
-#  ساعت‌های ممنوع (UTC)
-#  بر اساس آمار داشبورد: ساعت 02:00 = -12.5 ❌
-# ══════════════════════════════════════════════════════════════
-BLOCKED_HOURS_UTC = [1, 2, 3]   # آسیا — ATR مرده، stop-hunt
+# ==============================================================
+#  ساعات ممنوع (UTC)
+# ==============================================================
+BLOCKED_HOURS_UTC = [1, 2, 3]
 
-# ══════════════════════════════════════════════════════════════
-#  Cooldown
-# ══════════════════════════════════════════════════════════════
+# ==== Cooldown ====
 SIGNAL_COOLDOWN_MIN = 60
 
 # ==== Ntfy ====
@@ -84,14 +85,11 @@ STATE_FILE = "state.json"
 DASHBOARD_URL = "https://teachdiagram-create.github.io/goldpro-v2/"
 
 
-# ══════════════════════════════════════════════════════════════
-#  Helper functions (مشترک بین signal_logic و mt5_trader)
-# ══════════════════════════════════════════════════════════════
+# ==============================================================
+#  Helper functions
+# ==============================================================
 def compute_atr_effective(atr_raw: float) -> float:
-    """
-    ATR را در محدوده مجاز clamp می‌کند.
-    برمی‌گرداند 0 اگر بازار مرده باشد.
-    """
+    """ATR را clamp می‌کند. 0 = بازار مرده."""
     if atr_raw is None or atr_raw <= 0:
         return 0.0
     if atr_raw < ATR_MIN_USD:
@@ -99,30 +97,38 @@ def compute_atr_effective(atr_raw: float) -> float:
     return min(atr_raw, ATR_MAX_USD)
 
 
-def compute_sl_tp(side: str, price: float, atr: float,
-                  recent_high: float = None, recent_low: float = None):
+def get_sl_atr_mult(adx_value: float) -> float:
     """
-    محاسبه SL/TP.
+    ضریب SL بر اساس قدرت روند (ADX).
 
-    منطق SL:
-      SELL: max(recent_high + buffer*ATR, price + SL_ATR_MULT*ATR)
-      BUY : min(recent_low  - buffer*ATR, price - SL_ATR_MULT*ATR)
-      + حداقل مطلق MIN_SL_USD
+    - ADX > 40  -> روند قوی  -> SL بازتر
+    - ADX <= 40 -> روند عادی -> SL پایه
+    """
+    if adx_value is not None and adx_value > ADX_STRONG_THRESHOLD:
+        return SL_ATR_MULT * ADX_SL_BOOST
+    return SL_ATR_MULT
 
-    منطق TP:
-      TP = max(TP_ATR_MULT * ATR, MIN_TP_USD)
+
+def compute_sl_tp(side: str, price: float, atr: float,
+                  adx_value: float = None,
+                  recent_high: float = None,
+                  recent_low: float = None):
+    """
+    محاسبه SL/TP با در نظر گرفتن ADX.
 
     Returns:
-      (sl, tp, sl_dist, tp_dist, rr) یا (None, None, None, None, None)
+        (sl, tp, sl_dist, tp_dist, rr) یا (None, None, None, None, None)
     """
     if atr is None or atr <= 0 or price is None or price <= 0:
         return None, None, None, None, None
 
-    # ── SL ──
+    sl_mult = get_sl_atr_mult(adx_value)
+
+    # --- SL ---
     if side == "SELL":
         sl_structure = (recent_high + SL_STRUCTURE_BUFFER * atr
                         if recent_high else price + MIN_SL_USD)
-        sl_atr = price + SL_ATR_MULT * atr
+        sl_atr = price + sl_mult * atr
         sl = max(sl_structure, sl_atr)
         if (sl - price) < MIN_SL_USD:
             sl = price + MIN_SL_USD
@@ -130,7 +136,7 @@ def compute_sl_tp(side: str, price: float, atr: float,
     elif side == "BUY":
         sl_structure = (recent_low - SL_STRUCTURE_BUFFER * atr
                         if recent_low else price - MIN_SL_USD)
-        sl_atr = price - SL_ATR_MULT * atr
+        sl_atr = price - sl_mult * atr
         sl = min(sl_structure, sl_atr)
         if (price - sl) < MIN_SL_USD:
             sl = price - MIN_SL_USD
@@ -138,14 +144,14 @@ def compute_sl_tp(side: str, price: float, atr: float,
     else:
         return None, None, None, None, None
 
-    # ── TP ──
+    # --- TP ---
     tp_dist = max(TP_ATR_MULT * atr, MIN_TP_USD)
     if side == "BUY":
         tp = price + tp_dist
     else:
         tp = price - tp_dist
 
-    # ── اعتبارسنجی نهایی ──
+    # --- اعتبارسنجی ---
     rr = tp_dist / sl_dist if sl_dist > 0 else 0
     if rr < 1.0:
         return None, None, None, None, None
