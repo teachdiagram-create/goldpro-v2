@@ -1,5 +1,5 @@
 """
-GoldPro V2 - Grid Search Optimization (v3-aligned)
+GoldPro V2 - Grid Search Optimization (v4 with structure buffer)
 """
 import itertools
 import requests
@@ -10,7 +10,7 @@ from src.config import (
     TWELVEDATA_KEY, SYMBOL,
     ATR_MIN_USD, ATR_MAX_USD,
     MIN_SL_USD, MIN_TP_USD,
-    SL_STRUCTURE_BUFFER, BLOCKED_HOURS_UTC,
+    BLOCKED_HOURS_UTC,
 )
 from src.indicators import add_indicators
 from src.strategy import detect_double_top_sell, detect_double_bottom_buy
@@ -50,12 +50,13 @@ def is_blocked_hour(dt) -> bool:
 
 
 # ══════════════════════════════════════════════════════════════
-#  SL/TP (v3 logic — parameterized for grid)
+#  SL/TP (parameterized)
 # ══════════════════════════════════════════════════════════════
-def compute_sl_tp_v3(side, price, atr, adx_value,
+def compute_sl_tp_v4(side, price, atr, adx_value,
                      recent_high=None, recent_low=None,
                      sl_base_mult=1.5, tp_mult=2.5,
-                     adx_threshold=40, adx_boost=1.5):
+                     adx_threshold=40, adx_boost=1.2,
+                     sl_structure_buffer=0.2):
     if atr is None or atr <= 0 or price <= 0:
         return None, None, None, None, None
 
@@ -65,7 +66,7 @@ def compute_sl_tp_v3(side, price, atr, adx_value,
         sl_mult = sl_base_mult
 
     if side == "SELL":
-        sl_structure = (recent_high + SL_STRUCTURE_BUFFER * atr
+        sl_structure = (recent_high + sl_structure_buffer * atr
                         if recent_high else price + MIN_SL_USD)
         sl_atr = price + sl_mult * atr
         sl = max(sl_structure, sl_atr)
@@ -73,7 +74,7 @@ def compute_sl_tp_v3(side, price, atr, adx_value,
             sl = price + MIN_SL_USD
         sl_dist = sl - price
     elif side == "BUY":
-        sl_structure = (recent_low - SL_STRUCTURE_BUFFER * atr
+        sl_structure = (recent_low - sl_structure_buffer * atr
                         if recent_low else price - MIN_SL_USD)
         sl_atr = price - sl_mult * atr
         sl = min(sl_structure, sl_atr)
@@ -117,8 +118,10 @@ def simulate_trade(df, entry_idx, side, sl, tp, entry_price, max_bars=200):
 
 
 def run_backtest(df, adx_min, sl_mult, tp_mult,
-                 adx_threshold=40, adx_boost=1.5,
-                 max_bars_since=2, atr_min=ATR_MIN_USD, atr_max=ATR_MAX_USD,
+                 adx_threshold=40, adx_boost=1.2,
+                 sl_structure_buffer=0.2,
+                 max_bars_since=2,
+                 atr_min=ATR_MIN_USD, atr_max=ATR_MAX_USD,
                  block_hours=None):
     if block_hours is None:
         block_hours = BLOCKED_HOURS_UTC
@@ -126,8 +129,8 @@ def run_backtest(df, adx_min, sl_mult, tp_mult,
     trades = []
     start_idx = 100
     end_idx = len(df) - 100
-
     i = start_idx
+
     while i < end_idx:
         window = df.iloc[:i + 1]
         current = window.iloc[-1]
@@ -139,16 +142,13 @@ def run_backtest(df, adx_min, sl_mult, tp_mult,
         if pd.isna(atr_raw) or atr_raw <= 0 or pd.isna(adx_):
             i += 1
             continue
-
         if atr_raw < atr_min:
             i += 1
             continue
         atr_ = min(atr_raw, atr_max)
-
         if adx_ < adx_min:
             i += 1
             continue
-
         if is_blocked_hour(current["datetime"]):
             i += 1
             continue
@@ -160,21 +160,23 @@ def run_backtest(df, adx_min, sl_mult, tp_mult,
         signal = None
         if sell_setup:
             recent_high = float(window["high"].tail(20).max())
-            sl, tp, sd, td, rr = compute_sl_tp_v3(
+            sl, tp, sd, td, rr = compute_sl_tp_v4(
                 "SELL", price, atr_, adx_,
                 recent_high=recent_high,
                 sl_base_mult=sl_mult, tp_mult=tp_mult,
                 adx_threshold=adx_threshold, adx_boost=adx_boost,
+                sl_structure_buffer=sl_structure_buffer,
             )
             if sl is not None:
                 signal = {"side": "SELL", "entry": price, "sl": sl, "tp": tp, "idx": i}
         elif buy_setup:
             recent_low = float(window["low"].tail(20).min())
-            sl, tp, sd, td, rr = compute_sl_tp_v3(
+            sl, tp, sd, td, rr = compute_sl_tp_v4(
                 "BUY", price, atr_, adx_,
                 recent_low=recent_low,
                 sl_base_mult=sl_mult, tp_mult=tp_mult,
                 adx_threshold=adx_threshold, adx_boost=adx_boost,
+                sl_structure_buffer=sl_structure_buffer,
             )
             if sl is not None:
                 signal = {"side": "BUY", "entry": price, "sl": sl, "tp": tp, "idx": i}
@@ -238,11 +240,11 @@ def calc_stats(trades):
 
 
 # ══════════════════════════════════════════════════════════════
-#  Quick test - فقط v3 رو تست می‌کنه
+#  Quick Test - v4 فعلی
 # ══════════════════════════════════════════════════════════════
-def quick_test_v3(timeframe: str = "15min"):
+def quick_test_v4(timeframe: str = "15min"):
     print("=" * 60)
-    print(f"🔍 Quick Test: v3 on {timeframe}")
+    print(f"🔍 Quick Test: v4 on {timeframe}")
     print("=" * 60)
 
     df = fetch_history(timeframe, outputsize=5000)
@@ -256,7 +258,8 @@ def quick_test_v3(timeframe: str = "15min"):
         sl_mult=1.5,
         tp_mult=2.5,
         adx_threshold=40,
-        adx_boost=1.5,
+        adx_boost=1.2,
+        sl_structure_buffer=0.2,
     )
 
     if not trades:
@@ -266,7 +269,7 @@ def quick_test_v3(timeframe: str = "15min"):
     stats = calc_stats(trades)
 
     print("\n" + "─" * 60)
-    print("📊 v3 RESULTS")
+    print("📊 v4 RESULTS")
     print("─" * 60)
     print(f"  Total trades:  {stats['total']}")
     print(f"  Wins:          {stats['wins']} ✅")
@@ -283,14 +286,14 @@ def quick_test_v3(timeframe: str = "15min"):
 
 
 # ══════════════════════════════════════════════════════════════
-#  Grid Search - کامل
+#  Grid Search
 # ══════════════════════════════════════════════════════════════
 def grid_search():
     print("=" * 70)
-    print("🔬 GoldPro V2 - Grid Search (v3-aligned)")
+    print("🔬 GoldPro V2 - Grid Search (v4)")
     print("=" * 70)
 
-    lines = ["🔬 <b>Grid Search v3 Results</b>\n"]
+    lines = ["🔬 <b>Grid Search v4 Results</b>\n"]
 
     tf = "15min"
     print(f"\n📊 Fetching {tf} data...")
@@ -298,33 +301,37 @@ def grid_search():
     df = add_indicators(df)
     print(f"📥 Got {len(df)} candles\n")
 
+    # ── شبکه جستجو ──
+    buffer_values = [0.1, 0.2, 0.5]
     adx_values = [15, 20]
-    sl_values = [1.0, 1.5, 2.0]
-    tp_values = [2.0, 2.5, 3.0]
-    boost_values = [1.0, 1.5, 2.0]
+    sl_values = [1.5, 2.0]
+    tp_values = [2.5, 3.0, 3.5]
+    boost_values = [1.0, 1.2]
 
     results = []
-    total_combos = len(adx_values) * len(sl_values) * len(tp_values) * len(boost_values)
-    print(f"🔄 Testing {total_combos} combinations...\n")
+    total = (len(buffer_values) * len(adx_values) * len(sl_values)
+             * len(tp_values) * len(boost_values))
+    print(f"🔄 Testing {total} combinations...\n")
 
-    for idx, (adx, sl_m, tp_m, boost) in enumerate(
-        itertools.product(adx_values, sl_values, tp_values, boost_values), 1
+    for idx, (buf, adx, sl_m, tp_m, boost) in enumerate(
+        itertools.product(buffer_values, adx_values, sl_values, tp_values, boost_values), 1
     ):
         trades = run_backtest(
             df, adx, sl_m, tp_m,
             adx_threshold=40, adx_boost=boost,
+            sl_structure_buffer=buf,
         )
         stats = calc_stats(trades)
         if stats and stats["total"] >= 10:
-            stats["adx"] = adx
-            stats["sl"] = sl_m
-            stats["tp"] = tp_m
-            stats["boost"] = boost
+            stats.update({
+                "buf": buf, "adx": adx, "sl": sl_m,
+                "tp": tp_m, "boost": boost,
+            })
             results.append(stats)
             print(
-                f"  [{idx}/{total_combos}] ADX={adx} SL={sl_m} TP={tp_m} Boost={boost} -> "
-                f"Trades={stats['total']} WR={stats['win_rate']}% PF={stats['pf']} "
-                f"DD={stats['max_dd']} avgRR={stats['avg_rr']}"
+                f"  [{idx}/{total}] Buf={buf} ADX={adx} SL={sl_m} TP={tp_m} "
+                f"Boost={boost} -> Trades={stats['total']} WR={stats['win_rate']}% "
+                f"PF={stats['pf']} DD={stats['max_dd']} avgRR={stats['avg_rr']}"
             )
 
     if not results:
@@ -341,7 +348,7 @@ def grid_search():
 
     for i, r in enumerate(results[:10], 1):
         line = (
-            f"\n{i}. ADX={r['adx']} SL={r['sl']}xATR TP={r['tp']}xATR Boost={r['boost']}\n"
+            f"\n{i}. Buf={r['buf']} ADX={r['adx']} SL={r['sl']} TP={r['tp']} Boost={r['boost']}\n"
             f"   Trades:{r['total']} WR:{r['win_rate']}% PF:<b>{r['pf']}</b> "
             f"avgRR:{r['avg_rr']}\n"
             f"   PnL:{r['pnl']} DD:{r['max_dd']}"
@@ -351,15 +358,21 @@ def grid_search():
 
     best = results[0]
     print("\n🥇 BEST:")
+    print(f"   SL_STRUCTURE_BUFFER = {best['buf']}")
     print(f"   ADX_MIN = {best['adx']}")
     print(f"   SL_ATR_MULT = {best['sl']}")
     print(f"   TP_ATR_MULT = {best['tp']}")
     print(f"   ADX_SL_BOOST = {best['boost']}")
-    print(f"   WR: {best['win_rate']}%  PF: {best['pf']}  avgRR: {best['avg_rr']}")
+    print(f"   WR={best['win_rate']}%  PF={best['pf']}  avgRR={best['avg_rr']}")
 
     lines.append("\n\n🥇 <b>BEST:</b>")
-    lines.append(f"ADX_MIN={best['adx']} SL={best['sl']} TP={best['tp']} Boost={best['boost']}")
-    lines.append(f"WR:{best['win_rate']}% PF:<b>{best['pf']}</b> avgRR:{best['avg_rr']}")
+    lines.append(
+        f"Buf={best['buf']} ADX={best['adx']} SL={best['sl']} "
+        f"TP={best['tp']} Boost={best['boost']}"
+    )
+    lines.append(
+        f"WR:{best['win_rate']}% PF:<b>{best['pf']}</b> avgRR:{best['avg_rr']}"
+    )
 
     print("\n📨 Sending to Telegram...")
     send_telegram("\n".join(lines))
@@ -373,13 +386,13 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) > 1 and sys.argv[1] == "quick":
-        quick_test_v3()
+        quick_test_v4()
     elif len(sys.argv) > 1 and sys.argv[1] == "grid":
         grid_search()
     else:
         print("Usage:")
-        print("  python grid_search.py quick    → تست سریع v3")
-        print("  python grid_search.py grid     → grid search کامل")
+        print("  python grid_search.py quick    -> quick test v4")
+        print("  python grid_search.py grid     -> full grid search")
         print()
         print("Default: running quick test...")
-        quick_test_v3()
+        quick_test_v4()
