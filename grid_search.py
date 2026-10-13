@@ -334,9 +334,6 @@ def main():
     send_telegram("\n".join(lines))
     print("✅ Done")
 
-
-if __name__ == "__main__":
-    main()
 def quick_test_v3():
     """تست سریع v3 روی 15min"""
     print("🔍 Quick test v3...")
@@ -353,3 +350,13 @@ def quick_test_v3():
     for k, v in stats.items():
         print(f"  {k}: {v}")
     return stats
+
+
+if __name__ == "__main__":
+    # برای grid search کامل:
+    # main()
+
+    # برای تست سریع v3:
+    quick_test_v3()
+if __name__ == "__main__":
+    main()
