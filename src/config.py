@@ -24,7 +24,7 @@ SYMBOL = "XAU/USD"
 OUTPUT_SIZE = 200
 TIMEFRAMES = ["5min", "15min"]
 
-# ==== Indicators ====
+# ==== Indicators (استراتژی می‌تونه هر کدوم رو استفاده کنه) ====
 EMA_FAST = 20
 EMA_SLOW = 50
 RSI_PERIOD = 14
@@ -34,31 +34,17 @@ MACD_FAST = 12
 MACD_SLOW = 26
 MACD_SIGNAL = 9
 
-# ==== Signal filters ====
-ADX_MIN = 15
-RSI_BUY_MIN = 50
-RSI_BUY_MAX = 70
-RSI_SELL_MIN = 30
-RSI_SELL_MAX = 50
-
 # ==============================================================
-#  SL/TP - Version 4 (R:R fix)
+#  SL/TP - ساده و شفاف
 # ==============================================================
-SL_ATR_MULT = 1.5           # پایه (روند عادی)
-TP_ATR_MULT = 2.5           # ثابت
-SL_STRUCTURE_BUFFER = 0.2   # از 1.0 → 0.2 (R:R fix)
+SL_ATR_MULT = 2.5
+TP_ATR_MULT = 3.5
+MIN_SL_USD = 3.0
+MIN_TP_USD = 4.5
 
-# ADX multiplier - روند قوی -> SL بازتر
-ADX_STRONG_THRESHOLD = 40
-ADX_SL_BOOST = 1.2          # از 1.5 → 1.2
-
-# محدوده ATR (دلار)
-ATR_MIN_USD = 1.0
-ATR_MAX_USD = 4.0
-
-# حداقل فاصله مطلق (دلار)
-MIN_SL_USD = 4.5
-MIN_TP_USD = 6.5
+# محدوده امن ATR (دلار)
+ATR_MIN_USD = 0.5    # زیر این = بازار مرده
+ATR_MAX_USD = 10.0   # بالای این = بازار دیوانه
 
 # ==============================================================
 #  ساعات ممنوع (UTC)
@@ -86,69 +72,36 @@ DASHBOARD_URL = "https://teachdiagram-create.github.io/goldpro-v2/"
 
 
 # ==============================================================
-#  Helper functions
+#  Helper: SL/TP Calculator
 # ==============================================================
-def compute_atr_effective(atr_raw: float) -> float:
-    """ATR را clamp می‌کند. 0 = بازار مرده."""
-    if atr_raw is None or atr_raw <= 0:
-        return 0.0
-    if atr_raw < ATR_MIN_USD:
-        return 0.0
-    return min(atr_raw, ATR_MAX_USD)
-
-
-def get_sl_atr_mult(adx_value: float) -> float:
+def compute_sl_tp(side: str, price: float, atr: float):
     """
-    ضریب SL بر اساس قدرت روند (ADX).
-    """
-    if adx_value is not None and adx_value > ADX_STRONG_THRESHOLD:
-        return SL_ATR_MULT * ADX_SL_BOOST
-    return SL_ATR_MULT
+    محاسبه SL/TP ساده.
 
+    SL = max(SL_ATR_MULT × ATR, MIN_SL_USD)
+    TP = max(TP_ATR_MULT × ATR, MIN_TP_USD)
 
-def compute_sl_tp(side: str, price: float, atr: float,
-                  adx_value: float = None,
-                  recent_high: float = None,
-                  recent_low: float = None):
-    """
-    محاسبه SL/TP با در نظر گرفتن ADX.
+    Returns:
+        (sl, tp, sl_dist, tp_dist, rr) یا (None, None, None, None, None)
     """
     if atr is None or atr <= 0 or price is None or price <= 0:
         return None, None, None, None, None
 
-    sl_mult = get_sl_atr_mult(adx_value)
-
-    # --- SL ---
-    if side == "SELL":
-        sl_structure = (recent_high + SL_STRUCTURE_BUFFER * atr
-                        if recent_high else price + MIN_SL_USD)
-        sl_atr = price + sl_mult * atr
-        sl = max(sl_structure, sl_atr)
-        if (sl - price) < MIN_SL_USD:
-            sl = price + MIN_SL_USD
-        sl_dist = sl - price
-    elif side == "BUY":
-        sl_structure = (recent_low - SL_STRUCTURE_BUFFER * atr
-                        if recent_low else price - MIN_SL_USD)
-        sl_atr = price - sl_mult * atr
-        sl = min(sl_structure, sl_atr)
-        if (price - sl) < MIN_SL_USD:
-            sl = price - MIN_SL_USD
-        sl_dist = price - sl
-    else:
+    # ATR رو محدود کن
+    if atr < ATR_MIN_USD or atr > ATR_MAX_USD:
         return None, None, None, None, None
 
-    # --- TP ---
+    sl_dist = max(SL_ATR_MULT * atr, MIN_SL_USD)
     tp_dist = max(TP_ATR_MULT * atr, MIN_TP_USD)
-    if side == "BUY":
-        tp = price + tp_dist
-    else:
-        tp = price - tp_dist
 
-    # --- اعتبارسنجی ---
-    rr = tp_dist / sl_dist if sl_dist > 0 else 0
-    if rr < 1.0:
+    if side == "SELL":
+        sl = round(price + sl_dist, 2)
+        tp = round(price - tp_dist, 2)
+    elif side == "BUY":
+        sl = round(price - sl_dist, 2)
+        tp = round(price + tp_dist, 2)
+    else:
         return None, None, None, None, None
 
-    return (round(sl, 2), round(tp, 2),
-            round(sl_dist, 2), round(tp_dist, 2), round(rr, 2))
+    rr = tp_dist / sl_dist if sl_dist > 0 else 0
+    return (sl, tp, round(sl_dist, 2), round(tp_dist, 2), round(rr, 2))
