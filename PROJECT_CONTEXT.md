@@ -43,3 +43,16 @@
 - خروجی: dict با کلیدهای peak1_value, peak2_value, current_rsi
   (یا trough1_value, trough2_value برای BUY)
 - بقیه‌ی فایل‌ها دست نمی‌خورن
+## Experiment Log
+
+### Exp 1 (v1) — بسته شد
+- تاریخ: 1405/07/20 - 1405/07/22
+- ۱۳ ترید، WR=61.5%, PF=2.0, PnL=+18.83
+- نتیجه: SL/TP با ضریب ۴/۳ ناپایدار بود
+
+### Exp 2 (v5) — فعلی ✅
+- شروع: 1405/07/23
+- تنظیمات: SL=2.5×ATR, TP=3.5×ATR, MIN_SL=3.0, BLOCKED_HOURS=[1,2,3]
+- Gist از صفر شروع شد
+- هدف: ۱۵ ترید جمع کن
+- TODO: تحلیل SL distances
