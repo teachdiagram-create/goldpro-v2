@@ -24,7 +24,7 @@ SYMBOL = "XAU/USD"
 OUTPUT_SIZE = 200
 TIMEFRAMES = ["5min", "15min"]
 
-# ==== Indicators (استراتژی می‌تونه هر کدوم رو استفاده کنه) ====
+# ==== Indicators ====
 EMA_FAST = 20
 EMA_SLOW = 50
 RSI_PERIOD = 14
@@ -35,23 +35,26 @@ MACD_SLOW = 26
 MACD_SIGNAL = 9
 
 # ==============================================================
-#  SL/TP - ساده و شفاف
+#  SL/TP - ساده
 # ==============================================================
 SL_ATR_MULT = 2.5
 TP_ATR_MULT = 3.5
 MIN_SL_USD = 3.0
 MIN_TP_USD = 4.5
 
-# محدوده امن ATR (دلار)
-ATR_MIN_USD = 0.5    # زیر این = بازار مرده
-ATR_MAX_USD = 10.0   # بالای این = بازار دیوانه
+# ==============================================================
+#  Strategy Parameters
+# ==============================================================
+# این‌ها فقط برای مرجع‌ان — استراتژی خودش مقادیر پیش‌فرض داره
+RSI_OVERBOUGHT = 70.0
+RSI_OVERSOLD = 30.0
+LOOKBACK = 50
+MAX_BARS_SINCE_PEAK = 2
+MIN_DECLINE = 1.0
 
 # ==============================================================
-#  ساعات ممنوع (UTC)
+#  Cooldown
 # ==============================================================
-BLOCKED_HOURS_UTC = [1, 2, 3]
-
-# ==== Cooldown ====
 SIGNAL_COOLDOWN_MIN = 60
 
 # ==== Ntfy ====
@@ -76,19 +79,16 @@ DASHBOARD_URL = "https://teachdiagram-create.github.io/goldpro-v2/"
 # ==============================================================
 def compute_sl_tp(side: str, price: float, atr: float):
     """
-    محاسبه SL/TP ساده.
+    محاسبه SL/TP.
 
-    SL = max(SL_ATR_MULT × ATR, MIN_SL_USD)
-    TP = max(TP_ATR_MULT × ATR, MIN_TP_USD)
+    - SL = max(SL_ATR_MULT × ATR, MIN_SL_USD)
+    - TP = max(TP_ATR_MULT × ATR, MIN_TP_USD)
+    - بدون ATR clamp (چون فیلتر حذف شد)
 
     Returns:
         (sl, tp, sl_dist, tp_dist, rr) یا (None, None, None, None, None)
     """
     if atr is None or atr <= 0 or price is None or price <= 0:
-        return None, None, None, None, None
-
-    # ATR رو محدود کن
-    if atr < ATR_MIN_USD or atr > ATR_MAX_USD:
         return None, None, None, None, None
 
     sl_dist = max(SL_ATR_MULT * atr, MIN_SL_USD)
