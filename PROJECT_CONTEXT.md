@@ -56,3 +56,12 @@
 - Gist از صفر شروع شد
 - هدف: ۱۵ ترید جمع کن
 - TODO: تحلیل SL distances
+### Exp 3 (v6) — Pure Pattern + Quality Score
+- شروع: 1405/07/25
+- الگو: تنها تولیدکننده‌ی سیگنال (بدون فیلتر)
+- فیلترها → quality score (A/B/C/D)
+- BLOCKED_HOURS حذف شد
+- ATR clamp حذف شد
+- ADX filter حذف شد
+- استراتژی: Double Top/Bottom روی RSI
+- هدف: ۲۰ سیگنال، تحلیل کدوم گرید سودآوره
