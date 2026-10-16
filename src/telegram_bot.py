@@ -6,11 +6,8 @@ def _emoji(side: str) -> str:
     return "🟢" if side == "BUY" else "🔴"
 
 
-def _trend_badge(sig: dict) -> str:
-    """نشون‌دهنده‌ی قدرت روند."""
-    if sig.get("strong_trend"):
-        return "🔥 STRONG"
-    return ""
+def _grade_emoji(grade: str) -> str:
+    return {"A": "🏆", "B": "✅", "C": "⚠️", "D": "🚫"}.get(grade, "❔")
 
 
 def format_message(sig: dict) -> str:
@@ -19,40 +16,27 @@ def format_message(sig: dict) -> str:
     sl = sig.get("sl", "?")
     tp = sig.get("tp", "?")
 
-    # --- R:R ---
+    # ── R:R ──
     rr_text = ""
-    try:
-        if entry and sl and tp:
-            risk = abs(float(entry) - float(sl))
-            reward = abs(float(tp) - float(entry))
-            if risk > 0:
-                rr_text = f"⚖️ R:R = 1 : {reward / risk:.2f}"
-    except Exception:
-        pass
+    if sig.get("rr") is not None:
+        rr_text = f"⚖️ R:R = 1 : {sig['rr']:.2f}"
 
-    # --- SL/TP distances (اگه تو سیگنال باشه) ---
-    sl_dist = sig.get("sl_distance")
-    tp_dist = sig.get("tp_distance")
+    # ── SL/TP ──
     sl_line = f"🛑 SL: {sl}"
     tp_line = f"🎯 TP: {tp}"
-    if sl_dist is not None:
-        sl_line += f"  <i>({sl_dist})</i>"
-    if tp_dist is not None:
-        tp_line += f"  <i>({tp_dist})</i>"
+    if sig.get("sl_distance") is not None:
+        sl_line += f"  <i>({sig['sl_distance']})</i>"
+    if sig.get("tp_distance") is not None:
+        tp_line += f"  <i>({sig['tp_distance']})</i>"
 
-    # --- ADX badge ---
-    adx_val = sig.get("adx", "N/A")
-    trend_badge = _trend_badge(sig)
-    adx_line = f"📊 RSI: {sig.get('rsi', 'N/A')} | ADX: {adx_val}"
-    if trend_badge:
-        adx_line += f"  {trend_badge}"
+    # ── کیفیت ──
+    q = sig.get("quality") or {}
+    score = q.get("score", 0)
+    grade = q.get("grade", "?")
+    flags = q.get("flags", [])
+    warnings = q.get("warnings", [])
 
-    # --- SL multiplier ---
-    sl_mult = sig.get("sl_mult")
-    atr_val = sig.get("atr", "N/A")
-    atr_line = f"📈 ATR: {atr_val}"
-    if sl_mult is not None:
-        atr_line += f" | SL mult: {sl_mult}x"
+    quality_line = f"⭐ کیفیت: <b>{score}/100</b>  {_grade_emoji(grade)} <b>{grade}</b>"
 
     lines = [
         f"{_emoji(sig['side'])} <b>GOLD {sig['side']} — {tf}</b>",
@@ -63,9 +47,16 @@ def format_message(sig: dict) -> str:
     ]
     if rr_text:
         lines.append(rr_text)
-    lines.append(adx_line)
-    lines.append(atr_line)
-    lines.append(f"⏰ {sig.get('time', 'N/A')} UTC")
+    lines.append(quality_line)
+
+    if flags:
+        lines.append(f"✅ {' | '.join(flags)}")
+    if warnings:
+        lines.append(f"⚠️ {' | '.join(warnings)}")
+
+    lines.append(f"📊 RSI: {sig.get('rsi', '?')} | ADX: {sig.get('adx', '?')}")
+    lines.append(f"📈 ATR: {sig.get('atr', '?')}")
+    lines.append(f"🕐 {sig.get('time', '?')}")
 
     return "\n".join(lines)
 
@@ -73,12 +64,7 @@ def format_message(sig: dict) -> str:
 def _dashboard_keyboard():
     return {
         "inline_keyboard": [
-            [
-                {
-                    "text": "📊 مشاهده در داشبورد",
-                    "url": DASHBOARD_URL,
-                }
-            ]
+            [{"text": "📊 مشاهده در داشبورد", "url": DASHBOARD_URL}]
         ]
     }
 
@@ -95,7 +81,6 @@ def send_telegram(text: str, with_dashboard_button: bool = True) -> bool:
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
     }
-
     if with_dashboard_button:
         payload["reply_markup"] = _dashboard_keyboard()
 
