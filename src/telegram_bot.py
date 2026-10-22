@@ -15,13 +15,14 @@ def format_message(sig: dict) -> str:
     entry = sig.get("entry", "?")
     sl = sig.get("sl", "?")
     tp = sig.get("tp", "?")
+    strategy = sig.get("strategy", "RANGE")
 
-    # ── R:R ──
+    strategy_name = "📈 Trend (EMA+MACD)" if strategy == "TREND" else "🔄 Range (RSI)"
+
     rr_text = ""
     if sig.get("rr") is not None:
         rr_text = f"⚖️ R:R = 1 : {sig['rr']:.2f}"
 
-    # ── SL/TP ──
     sl_line = f"🛑 SL: {sl}"
     tp_line = f"🎯 TP: {tp}"
     if sig.get("sl_distance") is not None:
@@ -29,25 +30,24 @@ def format_message(sig: dict) -> str:
     if sig.get("tp_distance") is not None:
         tp_line += f"  <i>({sig['tp_distance']})</i>"
 
-    # ── کیفیت ──
     q = sig.get("quality") or {}
     score = q.get("score", 0)
     grade = q.get("grade", "?")
     flags = q.get("flags", [])
     warnings = q.get("warnings", [])
 
-    quality_line = f"⭐ کیفیت: <b>{score}/100</b>  {_grade_emoji(grade)} <b>{grade}</b>"
-
     lines = [
         f"{_emoji(sig['side'])} <b>GOLD {sig['side']} — {tf}</b>",
         "━━━━━━━━━━━━━━━━━━",
+        f"🎯 استراتژی: <b>{strategy_name}</b>",
         f"💵 Entry: <b>{entry}</b>",
         sl_line,
         tp_line,
     ]
     if rr_text:
         lines.append(rr_text)
-    lines.append(quality_line)
+    
+    lines.append(f"⭐ کیفیت: <b>{score}/100</b>  {_grade_emoji(grade)} <b>{grade}</b>")
 
     if flags:
         lines.append(f"✅ {' | '.join(flags)}")
@@ -57,6 +57,13 @@ def format_message(sig: dict) -> str:
     lines.append(f"📊 RSI: {sig.get('rsi', '?')} | ADX: {sig.get('adx', '?')}")
     lines.append(f"📈 ATR: {sig.get('atr', '?')}")
     lines.append(f"🕐 {sig.get('time', '?')}")
+    
+    # دلیل (کوتاه شده اگه طولانی بود)
+    reason = sig.get("reason", "")
+    if reason:
+        if len(reason) > 50:
+            reason = reason[:47] + "..."
+        lines.append(f"📝 {reason}")
 
     return "\n".join(lines)
 
