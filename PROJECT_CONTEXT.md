@@ -65,3 +65,7 @@
 - ADX filter حذف شد
 - استراتژی: Double Top/Bottom روی RSI
 - هدف: ۲۰ سیگنال، تحلیل کدوم گرید سودآوره
+### Exp 3 (v6) — Observations
+- 20 Oct: NO SIGNAL (روند نزولی قوی، RSI زیر ۳۰ فقط یه بار)
+- 22 Oct: NO SIGNAL (RSI کف‌های بالاتر زده، احتمال Bullish Divergence)
+- سیستم درست کار می‌کنه — الگوهای معتبر شکل نگرفتن
