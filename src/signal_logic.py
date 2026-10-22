@@ -1,36 +1,26 @@
 """
-Signal Logic - Pure pattern detection + quality scoring.
+Signal Logic - Interface between strategies and infrastructure.
 
-فلسفه:
-- الگوی دابل تاپ/باتم تنها تولیدکننده‌ی سیگنال است.
-- فیلترها هیچ سیگنالی را رد نمی‌کنند.
-- فیلترها فقط به هر سیگنال «وزن» (quality score) می‌دهند.
-
-Interface (ثابت):
-    evaluate_signal(df, timeframe) -> dict | None
+دو استراتژی مستقل:
+1. RSI Double Top/Bottom (RANGE)
+2. EMA Cross + MACD (TREND)
 """
 from src.config import compute_sl_tp
-from src.strategy import detect_double_top_sell, detect_double_bottom_buy
+from src.strategy import (
+    detect_double_top_sell,
+    detect_double_bottom_buy,
+    detect_trend_signal, # ← جدید
+)
 
 
 def _compute_quality(adx_val: float, atr_val: float,
-                     rsi_val: float, side: str) -> dict:
-    """
-    محاسبه‌ی وزن سیگنال بر اساس کیفیت.
-
-    Returns:
-        {
-            "score": 0-100,
-            "grade": "A" | "B" | "C" | "D",
-            "flags": [...],
-            "warnings": [...],
-        }
-    """
-    score = 50  # پایه
+                     rsi_val: float, side: str, strategy: str) -> dict:
+    """محاسبه‌ی وزن سیگنال بر اساس کیفیت (پویا برای هر دو استراتژی)."""
+    score = 50
     flags = []
     warnings = []
 
-    # ── ADX (قدرت روند) ──
+    # ── ADX ──
     if adx_val is None:
         warnings.append("ADX نامشخص")
     elif adx_val >= 50:
@@ -46,14 +36,14 @@ def _compute_quality(adx_val: float, atr_val: float,
         warnings.append("ADX ضعیف")
     else:
         score -= 20
-        warnings.append("ADX خیلی ضعیف - روند نیست")
+        warnings.append("ADX خیلی ضعیف")
 
-    # ── ATR (نوسان) ──
+    # ── ATR ──
     if atr_val is None:
         warnings.append("ATR نامشخص")
     elif atr_val < 0.5:
         score -= 25
-        warnings.append("ATR خیلی کم - بازار مرده")
+        warnings.append("ATR خیلی کم")
     elif atr_val < 1.0:
         score -= 10
         warnings.append("ATR کم")
@@ -65,80 +55,41 @@ def _compute_quality(adx_val: float, atr_val: float,
         warnings.append("ATR بالا")
     else:
         score -= 15
-        warnings.append("ATR خیلی بالا - نوسان خطرناک")
+        warnings.append("ATR خیلی بالا")
 
-    # ── RSI (تأیید الگو) ──
+    # ── RSI (تأیید برای هر دو) ──
     if rsi_val is not None:
-        if side == "SELL":
-            # دابل تاپ: RSI باید از سقف افتاده باشه
-            if rsi_val <= 65:
+        if strategy == "RANGE": # استراتژی RSI دابل تاپ/باتم
+            if side == "SELL" and rsi_val <= 65:
                 score += 10
                 flags.append("RSI تأیید می‌کند")
-            elif rsi_val >= 70:
-                score -= 10
-                warnings.append("RSI هنوز بالا - شاید زود باشه")
-        elif side == "BUY":
-            if rsi_val >= 35:
+            elif side == "BUY" and rsi_val >= 35:
                 score += 10
                 flags.append("RSI تأیید می‌کند")
-            elif rsi_val <= 30:
+            elif side == "SELL" and rsi_val >= 70:
                 score -= 10
-                warnings.append("RSI هنوز پایین - شاید زود باشه")
+                warnings.append("RSI هنوز بالا")
+            elif side == "BUY" and rsi_val <= 30:
+                score -= 10
+                warnings.append("RSI هنوز پایین")
+        elif strategy == "TREND": # استراتژی روندی
+            if side == "BUY" and 40 <= rsi_val <= 70:
+                score += 10
+                flags.append("RSI در محدوده")
+            elif side == "SELL" and 30 <= rsi_val <= 60:
+                score += 10
+                flags.append("RSI در محدوده")
 
-    # ── محدود کردن ──
     score = max(0, min(100, score))
+    if score >= 80: grade = "A"
+    elif score >= 65: grade = "B"
+    elif score >= 50: grade = "C"
+    else: grade = "D"
 
-    # ── تعیین گرید ──
-    if score >= 80:
-        grade = "A"
-    elif score >= 65:
-        grade = "B"
-    elif score >= 50:
-        grade = "C"
-    else:
-        grade = "D"
-
-    return {
-        "score": score,
-        "grade": grade,
-        "flags": flags,
-        "warnings": warnings,
-    }
-
-
-def _build_reason(setup: dict, side: str) -> str:
-    """ساخت reason پویا از setup."""
-    if side == "SELL":
-        p1 = setup.get("peak1_value")
-        p2 = setup.get("peak2_value")
-        cur = setup.get("current_rsi")
-        if p1 is not None and p2 is not None:
-            r = f"RSI double top: {p1} -> {p2}"
-            if cur is not None:
-                r += f" (now {cur})"
-            return r
-    elif side == "BUY":
-        t1 = setup.get("trough1_value")
-        t2 = setup.get("trough2_value")
-        cur = setup.get("current_rsi")
-        if t1 is not None and t2 is not None:
-            r = f"RSI double bottom: {t1} -> {t2}"
-            if cur is not None:
-                r += f" (now {cur})"
-            return r
-    return setup.get("reason", f"{side} signal")
+    return {"score": score, "grade": grade, "flags": flags, "warnings": warnings}
 
 
 def evaluate_signal(df, timeframe: str = "5min"):
-    """
-    ارزیابی آخرین کندل بسته‌شده.
-
-    هیچ فیلتری سیگنال را رد نمی‌کند.
-    فیلترها فقط به quality_score تبدیل می‌شوند.
-
-    Returns:
-        dict یا None (اگر الگویی نباشد)
-    """
     closed = df.iloc[:-1]
     current = closed.iloc[-1]
     rsi_series = closed["rsi"]
@@ -158,78 +109,46 @@ def evaluate_signal(df, timeframe: str = "5min"):
     }
 
     # ══════════════════════════════════════════
-    #  SELL: Double Top
+    #  1) RANGE STRATEGY (RSI Double Top/Bottom)
     # ══════════════════════════════════════════
     sell_setup = detect_double_top_sell(rsi_series)
     if sell_setup:
         sl, tp, sd, td, rr = compute_sl_tp("SELL", price, atr_)
-        if sl is None:
-            # SL/TP نشد - ولی سیگنال رو با sl/tp خالی بفرست
+        if sl is not None:
             return {
-                **base,
-                "side": "SELL",
-                "entry": round(price, 2),
-                "sl": None,
-                "tp": None,
-                "sl_distance": None,
-                "tp_distance": None,
-                "rr": None,
-                "quality": _compute_quality(adx_, atr_, rsi_, "SELL"),
-                "reason": _build_reason(sell_setup, "SELL"),
-                "valid": False,
+                **base, "side": "SELL", "entry": round(price, 2),
+                "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
+                "strategy": "RANGE", "quality": _compute_quality(adx_, atr_, rsi_, "SELL", "RANGE"),
+                "reason": f"RSI double top: {sell_setup.get('peak1_value')} -> {sell_setup.get('peak2_value')}",
+                "valid": True,
             }
 
-        quality = _compute_quality(adx_, atr_, rsi_, "SELL")
-
-        return {
-            **base,
-            "side": "SELL",
-            "entry": round(price, 2),
-            "sl": sl,
-            "tp": tp,
-            "sl_distance": sd,
-            "tp_distance": td,
-            "rr": rr,
-            "quality": quality,
-            "reason": _build_reason(sell_setup, "SELL"),
-            "valid": True,
-        }
-
-    # ══════════════════════════════════════════
-    #  BUY: Double Bottom
-    # ══════════════════════════════════════════
     buy_setup = detect_double_bottom_buy(rsi_series)
     if buy_setup:
         sl, tp, sd, td, rr = compute_sl_tp("BUY", price, atr_)
-        if sl is None:
+        if sl is not None:
             return {
-                **base,
-                "side": "BUY",
-                "entry": round(price, 2),
-                "sl": None,
-                "tp": None,
-                "sl_distance": None,
-                "tp_distance": None,
-                "rr": None,
-                "quality": _compute_quality(adx_, atr_, rsi_, "BUY"),
-                "reason": _build_reason(buy_setup, "BUY"),
-                "valid": False,
+                **base, "side": "BUY", "entry": round(price, 2),
+                "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
+                "strategy": "RANGE", "quality": _compute_quality(adx_, atr_, rsi_, "BUY", "RANGE"),
+                "reason": f"RSI double bottom: {buy_setup.get('trough1_value')} -> {buy_setup.get('trough2_value')}",
+                "valid": True,
             }
 
-        quality = _compute_quality(adx_, atr_, rsi_, "BUY")
-
-        return {
-            **base,
-            "side": "BUY",
-            "entry": round(price, 2),
-            "sl": sl,
-            "tp": tp,
-            "sl_distance": sd,
-            "tp_distance": td,
-            "rr": rr,
-            "quality": quality,
-            "reason": _build_reason(buy_setup, "BUY"),
-            "valid": True,
-        }
+    # ══════════════════════════════════════════
+    #  2) TREND STRATEGY (EMA Cross + MACD)
+    # ══════════════════════════════════════════
+    trend_signal = detect_trend_signal(closed)
+    if trend_signal:
+        side = trend_signal["direction"]
+        sl, tp, sd, td, rr = compute_sl_tp(side, price, atr_)
+        if sl is not None:
+            return {
+                **base, "side": side, "entry": round(price, 2),
+                "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
+                "strategy": "TREND", "quality": _compute_quality(adx_, atr_, rsi_, side, "TREND"),
+                "reason": f"EMA Cross ({trend_signal['ema_fast']} vs {trend_signal['ema_slow']}) + MACD",
+                "valid": True,
+            }
 
     return None
