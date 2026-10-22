@@ -69,3 +69,9 @@
 - 20 Oct: NO SIGNAL (روند نزولی قوی، RSI زیر ۳۰ فقط یه بار)
 - 22 Oct: NO SIGNAL (RSI کف‌های بالاتر زده، احتمال Bullish Divergence)
 - سیستم درست کار می‌کنه — الگوهای معتبر شکل نگرفتن
+### Exp 4 (v7) — Dual Strategy
+- RANGE: RSI Double Top/Bottom (همون قبلی)
+- TREND: EMA Cross + MACD Confirmation
+- اولی RANGE چک می‌شه، اگه نبود TREND
+- هر سیگنال `strategy` داره تو پیام
+- استراتژی‌ها مستقل، کیفیت‌شون جدا
