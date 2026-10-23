@@ -194,6 +194,18 @@
     background: rgba(255, 215, 0, 0.15); color: #ffd700;
     border: 1px solid rgba(255, 215, 0, 0.3);
   }
+  .badge.range {
+    background: rgba(167, 139, 250, 0.15); color: #a78bfa;
+    border: 1px solid rgba(167, 139, 250, 0.3);
+  }
+  .badge.trend {
+    background: rgba(56, 189, 248, 0.15); color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+  }
+  .badge.grade-A { background: rgba(74, 222, 128, 0.2); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
+  .badge.grade-B { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
+  .badge.grade-C { background: rgba(255, 215, 0, 0.2); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.4); }
+  .badge.grade-D { background: rgba(248, 113, 113, 0.2); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.4); }
   .empty {
     text-align: center; padding: 40px 20px;
     color: #8892b0; font-size: 0.95rem;
@@ -321,20 +333,6 @@
   .indicator-row .val {
     font-weight: 700; color: #ffd700; font-size: 1rem;
   }
-  .indicator-row .val.good { color: #4ade80; }
-  .indicator-row .val.bad { color: #f87171; }
-  .risk-info {
-    background: rgba(255, 215, 0, 0.05);
-    border: 1px solid rgba(255, 215, 0, 0.2);
-    border-radius: 12px; padding: 16px;
-    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-  }
-  .risk-info .item .label {
-    font-size: 0.75rem; color: #8892b0; margin-bottom: 4px;
-  }
-  .risk-info .item .value {
-    font-size: 1rem; font-weight: 700; color: #ffd700;
-  }
   .equity-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -362,27 +360,6 @@
   }
   .equity-stat .value.pos { color: #4ade80; }
   .equity-stat .value.neg { color: #f87171; }
-  .share-btn {
-    width: 100%;
-    margin-top: 16px;
-    padding: 14px;
-    background: linear-gradient(135deg, #4ade80, #22c55e);
-    color: #0a0e1a;
-    border: none;
-    border-radius: 12px;
-    font-family: Vazirmatn, sans-serif;
-    font-size: 1rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .share-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 25px rgba(74, 222, 128, 0.4);
-  }
-  .share-btn.copied {
-    background: linear-gradient(135deg, #ffd700, #f5b041);
-  }
   #button-bar {
     position: fixed;
     bottom: 20px;
@@ -445,11 +422,12 @@
     <div class="subtitle">داشبورد سیگنال‌های معاملاتی XAU/USD</div>
     <div id="status" class="status-bar">⏳ در حال بارگذاری...</div>
   </header>
-<div style="text-align: center; margin-bottom: 20px;">
-  <a href="./stats.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); color: #ffd700; text-decoration: none; border-radius: 999px; font-size: 0.9rem; font-weight: 700; transition: all 0.2s;">
-    📊 تحلیل آماری پیشرفته
-  </a>
-</div>
+  
+  <div style="text-align: center; margin-bottom: 20px;">
+    <a href="./stats.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); color: #ffd700; text-decoration: none; border-radius: 999px; font-size: 0.9rem; font-weight: 700; transition: all 0.2s;">
+      📊 تحلیل آماری پیشرفته
+    </a>
+  </div>
 
   <div class="price-card">
     <div class="price-label">💰 قیمت لحظه‌ای طلا (XAU/USD)</div>
@@ -565,6 +543,7 @@ let resultChart = null;
 let tfChart = null;
 let equityChart = null;
 let currentHistory = [];
+let countdown = 60;
 
 function formatTime(iso, full = false) {
   if (!iso) return "—";
@@ -595,6 +574,7 @@ function getResultBadge(r) {
 
 function round2(n) { return Math.round(n * 100) / 100; }
 
+// ─── Audio ───
 let audioContext = null;
 function initAudioContext() {
   if (!audioContext) {
@@ -637,563 +617,380 @@ function playWinAlarm() {
     const ctx = initAudioContext();
     const now = ctx.currentTime;
     const notes = [
-      { start: 0.0, freq: 523 },
-      { start: 0.15, freq: 659 },
-      { start: 0.3, freq: 784 },
-      { start: 0.45, freq: 1047 },
+      { f: 523.25, t: 0.0 }, { f: 659.25, t: 0.15 },
+      { f: 783.99, t: 0.3 }, { f: 1046.5, t: 0.45 },
     ];
-    notes.forEach(note => {
+    notes.forEach(n => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = note.freq;
-      osc.type = 'triangle';
-      gain.gain.setValueAtTime(0, now + note.start);
-      gain.gain.linearRampToValueAtTime(1.0, now + note.start + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + note.start + 0.4);
-      osc.start(now + note.start);
-      osc.stop(now + note.start + 0.45);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = n.f; osc.type = 'triangle';
+      gain.gain.setValueAtTime(0, now + n.t);
+      gain.gain.linearRampToValueAtTime(0.6, now + n.t + 0.02);
+      gain.gain.linearRampToValueAtTime(0, now + n.t + 0.5);
+      osc.start(now + n.t); osc.stop(now + n.t + 0.5);
     });
   } catch (e) { console.log('Sound failed:', e); }
 }
 
-function vibrateSignal() {
-  if ('vibrate' in navigator) navigator.vibrate([300, 150, 300, 150, 300]);
+function testSoundAndVibrate() {
+  initAudioContext();
+  playSignalAlarm();
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
 }
-function vibrateWin() {
-  if ('vibrate' in navigator) navigator.vibrate([150, 100, 150, 100, 150, 100, 400]);
-}
-function alertNewSignal() { playSignalAlarm(); vibrateSignal(); }
-function alertWin() { playWinAlarm(); vibrateWin(); }
+
+// ─── Notifications ───
+let lastSeenSentAt = localStorage.getItem("last_seen_sent_at") || "";
+let notifyPermission = "default";
 
 async function initNotification() {
-  const btn = document.getElementById('notify-btn');
-  if (!('Notification' in window)) {
-    btn.textContent = '❌ پشتیبانی نمی‌شه';
+  if (!("Notification" in window)) {
+    alert("مرورگر شما از نوتیفیکیشن پشتیبانی نمی‌کنه");
     return;
   }
-  if (Notification.permission === 'granted') {
-    btn.textContent = '✅ فعاله';
-    return;
-  }
-  const permission = await Notification.requestPermission();
-  if (permission === 'granted') {
-    btn.textContent = '✅ فعال شد';
-    new Notification('GoldPro — آماده!', {
-      body: 'از الان هر سیگنال جدید رو خبر می‌دم',
-      icon: '/goldpro-v2/icon-192.svg',
-      dir: 'rtl', lang: 'fa',
-    });
-    setTimeout(() => { btn.style.display = 'none'; }, 3000);
+  const perm = await Notification.requestPermission();
+  notifyPermission = perm;
+  if (perm === "granted") {
+    document.getElementById("notify-btn").textContent = "🔔 نوتیفیکیشن فعال";
+    document.getElementById("notify-btn").style.background = "linear-gradient(135deg, #4ade80, #22c55e)";
+    new Notification("✅ GoldPro", { body: "نوتیفیکیشن فعال شد. از این به بعد سیگنال‌های جدید اطلاع می‌دیم." });
+    localStorage.setItem("notify_enabled", "1");
   } else {
-    btn.textContent = '❌ اجازه ندادی';
-    setTimeout(() => { btn.textContent = '🔔 فعال‌سازی نوتیفیکیشن'; }, 3000);
+    alert("برای دریافت نوتیفیکیشن، از تنظیمات مرورگر اجازه بده.");
   }
 }
 
-function testSoundAndVibrate() {
-  const btn = document.getElementById('test-sound-btn');
-  const originalText = btn.textContent;
+function sendNotification(title, body) {
+  if (notifyPermission !== "granted") return;
   try {
-    playSignalAlarm();
-    vibrateSignal();
-    btn.textContent = '✅ صدا و لرزش';
-    setTimeout(() => { btn.textContent = originalText; }, 3500);
-  } catch (e) {
-    btn.textContent = '❌ خطا';
-    setTimeout(() => { btn.textContent = originalText; }, 1500);
-  }
-}
-
-function showSignalNotification(signal) {
-  alertNewSignal();
-  if (Notification.permission !== 'granted') return;
-  const emoji = signal.side === 'BUY' ? '🟢' : '🔴';
-  const tf = (signal.timeframe || '5min').replace('min', 'M');
-  try {
-    const n = new Notification(`${emoji} GoldPro — ${signal.side} ${tf}`, {
-      body: `ورود: ${signal.entry}`,
-      icon: '/goldpro-v2/icon-192.svg',
-      tag: signal.sent_at,
-      vibrate: [300, 150, 300],
-      dir: 'rtl', lang: 'fa',
-      requireInteraction: true,
+    const notif = new Notification(title, {
+      body: body, icon: "icon-192.svg",
+      tag: "goldpro-" + Date.now(), requireInteraction: true,
     });
-    n.onclick = () => { window.focus(); n.close(); };
-  } catch (e) { console.log('Notification failed:', e); }
+    notif.onclick = () => { window.focus(); notif.close(); };
+  } catch (e) { console.log("Notif failed:", e); }
 }
 
-function showWinNotification(signal) {
-  alertWin();
-  if (Notification.permission !== 'granted') return;
-  const pnl = signal.pnl || 0;
-  try {
-    new Notification('🎉 سیگنال WIN شد!', {
-      body: `سود: +${pnl.toFixed(2)} | ${signal.side} ${signal.timeframe}`,
-      icon: '/goldpro-v2/icon-192.svg',
-      tag: 'win-' + signal.sent_at,
-      dir: 'rtl', lang: 'fa',
-    });
-  } catch (e) { console.log('Notification failed:', e); }
-}
-
-async function checkForNewSignals(history) {
-  const lastSeenTime = localStorage.getItem('lastSignalTime') || '1970-01-01';
-  const lastSentAt = history.length > 0 ? history[0].sent_at : null;
-  if (!lastSentAt) return;
-  if (lastSentAt > lastSeenTime) {
-    const newSignals = history.filter(h => h.sent_at > lastSeenTime);
-    newSignals.slice(0, 3).reverse().forEach((sig, i) => {
-      setTimeout(() => showSignalNotification(sig), i * 1200);
-    });
-    localStorage.setItem('lastSignalTime', lastSentAt);
-  }
-  const closedSignals = history.filter(h => h.result === 'WIN' && h.pnl != null);
-  const lastWinKey = localStorage.getItem('lastWinTime') || '1970-01-01';
-  const newWins = closedSignals.filter(h => h.closed_at && h.closed_at > lastWinKey);
-  if (newWins.length > 0) {
-    setTimeout(() => showWinNotification(newWins[0]), 4000);
-    localStorage.setItem('lastWinTime', newWins[0].closed_at);
-  }
-}
-
-// ═══════════════════════════════════════
-//  Live Gold Price — از Gist می‌خونه
-// ═══════════════════════════════════════
-let previousPrice = null;
-
-async function fetchGoldPrice() {
-  try {
-    const res = await fetch(GIST_API, {
-      headers: { "Accept": "application/vnd.github+json" },
-      cache: 'no-store'
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const gistData = await res.json();
-
-    const files = gistData.files || {};
-    const stateFile = files["goldpro-state.json"];
-    if (!stateFile) throw new Error('state file not found');
-
-    const data = JSON.parse(stateFile.content);
-    const price = data.current_price;
-    const updatedAt = data.price_updated_at;
-
-    const el = document.getElementById('live-price');
-    const changeEl = document.getElementById('price-change');
-
-    if (!price || isNaN(price)) {
-      if (changeEl) changeEl.textContent = '⏳ منتظر اولین به‌روزرسانی...';
-      return;
-    }
-
-    if (previousPrice !== null && el) {
-      if (price > previousPrice) el.className = 'price-value up';
-      else if (price < previousPrice) el.className = 'price-value down';
-      setTimeout(() => { if (el) el.className = 'price-value'; }, 900);
-    }
-
-    if (el) el.textContent = price.toFixed(2);
-
-    if (previousPrice !== null) {
-      const diff = price - previousPrice;
-      const sign = diff >= 0 ? '+' : '';
-      const cls = diff >= 0 ? 'pos' : 'neg';
-      if (changeEl) changeEl.innerHTML =
-        `<span class="${cls}">${sign}${diff.toFixed(2)}</span> از بروزرسانی قبل`;
-    } else if (updatedAt) {
-      const d = new Date(updatedAt + "Z");
-      const time = d.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" });
-      if (changeEl) changeEl.textContent = `🕐 آخرین به‌روزرسانی: ${time}`;
-    }
-
-    previousPrice = price;
-  } catch (e) {
-    console.log('Price fetch failed:', e);
-    const changeEl = document.getElementById('price-change');
-    if (changeEl) changeEl.textContent = '⚠️ در حال تلاش دوباره...';
-  }
-}
+// ─── Data Loading ───
 async function loadData() {
   setStatus("⏳ در حال بارگذاری...");
   try {
-    const res = await fetch(GIST_API, {
-      headers: { "Accept": "application/vnd.github+json" }
-    });
-    if (!res.ok) throw new Error("Gist API HTTP " + res.status);
-    const gistData = await res.json();
-    const files = gistData.files || {};
-    const stateFile = files["goldpro-state.json"];
-    if (!stateFile) throw new Error("goldpro-state.json not found");
-    const rawContent = stateFile.content;
-    if (!rawContent || !rawContent.trim()) throw new Error("gist content is empty");
-    const data = JSON.parse(rawContent);
-    const history = data.history || [];
-    currentHistory = history;
+    const r = await fetch(GIST_API + "?t=" + Date.now());
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    
+    const files = data.files || {};
+    const file = files["goldpro-state.json"] || Object.values(files)[0];
+    if (!file) throw new Error("فایل state پیدا نشد");
+    
+    let state = {};
+    try { state = JSON.parse(file.content || "{}"); } 
+    catch (e) { throw new Error("JSON state خرابه"); }
 
-    const wins = history.filter(h => h.result === "WIN");
-    const losses = history.filter(h => h.result === "LOSS");
-    const openTrades = history.filter(h => !h.result);
-
-    const totalPnl = history.reduce((sum, h) => sum + (h.pnl || 0), 0);
-    const totalWinPnl = wins.reduce((sum, h) => sum + (h.pnl || 0), 0);
-    const totalLossPnl = Math.abs(losses.reduce((sum, h) => sum + (h.pnl || 0), 0));
-    const winRate = (wins.length + losses.length) > 0
-      ? (wins.length / (wins.length + losses.length) * 100).toFixed(1) : "0.0";
-    const pf = totalLossPnl > 0 ? (totalWinPnl / totalLossPnl).toFixed(2) : (wins.length > 0 ? "∞" : "0");
-
-    document.getElementById("total").textContent = history.length;
-    document.getElementById("wins").textContent = wins.length;
-    document.getElementById("losses").textContent = losses.length;
-    document.getElementById("open-count").textContent = openTrades.length;
-    document.getElementById("win-rate").textContent = winRate + "%";
-    document.getElementById("profit-factor").textContent = pf;
-
-    const pnlEl = document.getElementById("total-pnl");
-    pnlEl.textContent = (totalPnl >= 0 ? "+" : "") + totalPnl.toFixed(2);
-    pnlEl.className = "stat-value small " + (totalPnl >= 0 ? "pnl-pos" : "pnl-neg");
-
-    if (history.length > 0) {
-      document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
+    currentHistory = state.history || [];
+    const currentPrice = state.current_price;
+    
+    if (currentPrice) {
+      document.getElementById("live-price").textContent = round2(currentPrice).toLocaleString("fa-IR");
     }
 
-    checkForNewSignals(history);
-    renderCharts(history, wins.length, losses.length, openTrades.length);
-    renderEquityChart(history);
-    renderTable(history);
-
-    setStatus("✅ متصل — " + history.length + " سیگنال");
-    document.getElementById("updated").textContent =
-      "آخرین بروزرسانی: " + new Date().toLocaleTimeString("fa-IR");
-
-  } catch (err) {
-    console.error(err);
-    setStatus("❌ خطا: " + err.message, true);
-    document.getElementById("table-wrap").innerHTML =
-      '<div class="empty">❌ خطا در دریافت داده</div>';
+    renderStats(currentHistory);
+    renderTable(currentHistory);
+    renderCharts(currentHistory);
+    
+    setStatus(`✅ متصل — ${currentHistory.length} سیگنال`);
+    document.getElementById("updated").textContent = "آخرین بروزرسانی: " + new Date().toLocaleString("fa-IR");
+    
+    checkForNewSignals(currentHistory);
+    countdown = 60;
+    
+  } catch (e) {
+    console.error(e);
+    setStatus("❌ خطا: " + e.message, true);
   }
 }
 
-function renderCharts(history, wins, losses, open) {
-  if (resultChart) resultChart.destroy();
-  const ctx = document.getElementById("resultChart").getContext("2d");
-  resultChart = new Chart(ctx, {
-    type: "doughnut",
-    data: {
-      labels: ["برد", "باخت", "در جریان"],
-      datasets: [{
-        data: [wins, losses, open],
-        backgroundColor: ["#4ade80", "#f87171", "#ffd700"],
-        borderColor: "#0a0e1a", borderWidth: 3,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { position: "bottom",
-          labels: { color: "#e8ecf5", font: { family: "Vazirmatn", size: 13 }, padding: 14 } }
-      },
-      cutout: "65%",
+function checkForNewSignals(history) {
+  if (!history.length) return;
+  const latest = history[0];
+  if (latest.sent_at && latest.sent_at !== lastSeenSentAt) {
+    if (lastSeenSentAt) {
+      playSignalAlarm();
+      if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+      sendNotification(
+        `${latest.side === 'BUY' ? '🟢' : '🔴'} ${latest.side} — ${latest.strategy || 'RANGE'}`,
+        `${latest.entry} | کیفیت: ${latest.quality ? latest.quality.grade : '?'}`
+      );
     }
-  });
-
-  const tfCounts = {};
-  history.forEach(h => { tfCounts[h.timeframe] = (tfCounts[h.timeframe] || 0) + 1; });
-  if (tfChart) tfChart.destroy();
-  const tfCtx = document.getElementById("tfChart").getContext("2d");
-  tfChart = new Chart(tfCtx, {
-    type: "bar",
-    data: {
-      labels: Object.keys(tfCounts).map(t => t.replace("min", " دقیقه")),
-      datasets: [{
-        data: Object.values(tfCounts),
-        backgroundColor: "rgba(255, 215, 0, 0.6)",
-        borderColor: "#ffd700", borderWidth: 2, borderRadius: 8,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color: "#b8c1d9", font: { family: "Vazirmatn" } }, grid: { display: false } },
-        y: { ticks: { color: "#b8c1d9", stepSize: 1 }, grid: { color: "rgba(255,255,255,0.05)" } }
-      }
-    }
-  });
+    lastSeenSentAt = latest.sent_at;
+    localStorage.setItem("last_seen_sent_at", lastSeenSentAt);
+  }
 }
 
-function renderEquityChart(history) {
-  const closed = history.filter(h => h.result && h.pnl != null).slice().reverse();
-  if (closed.length === 0) {
-    const el = document.getElementById("equity-stats");
-    if (el) el.innerHTML = '<div style="text-align:center; color:#8892b0; padding:20px;">📭 هنوز معامله بسته‌شده‌ای نداریم</div>';
-    if (equityChart) equityChart.destroy();
-    return;
+function renderStats(history) {
+  const total = history.length;
+  const wins = history.filter(t => t.result === "WIN").length;
+  const losses = history.filter(t => t.result === "LOSS").length;
+  const opens = history.filter(t => !t.result).length;
+  
+  const closed = wins + losses;
+  const winRate = closed > 0 ? round2(wins / closed * 100) : 0;
+  const pnl = round2(history.reduce((s, t) => s + (t.pnl || 0), 0));
+  
+  let totalWin = 0, totalLoss = 0;
+  history.forEach(t => {
+    if (t.result === "WIN" && t.pnl) totalWin += t.pnl;
+    if (t.result === "LOSS" && t.pnl) totalLoss += Math.abs(t.pnl);
+  });
+  const pf = totalLoss > 0 ? round2(totalWin / totalLoss) : 0;
+  
+  document.getElementById("total").textContent = total;
+  document.getElementById("wins").textContent = wins;
+  document.getElementById("losses").textContent = losses;
+  document.getElementById("open-count").textContent = opens;
+  document.getElementById("win-rate").textContent = winRate + "%";
+  document.getElementById("total-pnl").textContent = (pnl >= 0 ? "+" : "") + pnl;
+  document.getElementById("total-pnl").className = "stat-value small " + (pnl >= 0 ? "pnl-pos" : "pnl-neg");
+  document.getElementById("profit-factor").textContent = pf;
+  
+  if (history[0]) {
+    document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
   }
-  let cumulative = 0;
-  const labels = ["شروع"];
-  const equityData = [0];
-  let peak = 0, maxDrawdown = 0;
-  closed.forEach(h => {
-    cumulative += h.pnl;
-    if (cumulative > peak) peak = cumulative;
-    const dd = peak - cumulative;
-    if (dd > maxDrawdown) maxDrawdown = dd;
-    const d = new Date(h.sent_at + "Z");
-    labels.push(d.toLocaleString("fa-IR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
-    equityData.push(round2(cumulative));
-  });
-  if (equityChart) equityChart.destroy();
-  const ctx = document.getElementById("equityChart").getContext("2d");
-  const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-  gradient.addColorStop(0, "rgba(74, 222, 128, 0.4)");
-  gradient.addColorStop(1, "rgba(74, 222, 128, 0.0)");
-  equityChart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: labels,
-      datasets: [{
-        label: "سرمایه", data: equityData,
-        borderColor: "#4ade80", backgroundColor: gradient,
-        borderWidth: 3, fill: true, tension: 0.35,
-        pointRadius: 5, pointBackgroundColor: "#ffd700",
-        pointBorderColor: "#0a0e1a", pointBorderWidth: 2, pointHoverRadius: 8,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false },
-        tooltip: {
-          backgroundColor: "rgba(20, 26, 46, 0.95)",
-          titleColor: "#ffd700", bodyColor: "#e8ecf5",
-          titleFont: { family: "Vazirmatn", size: 13 },
-          bodyFont: { family: "Vazirmatn", size: 13 },
-          callbacks: { label: function(c) {
-            const v = c.parsed.y;
-            return "سرمایه: " + (v >= 0 ? "+" : "") + v.toFixed(2);
-          }}
-        }
-      },
-      scales: {
-        x: { ticks: { color: "#8892b0", font: { family: "Vazirmatn", size: 10 },
-          maxRotation: 45, minRotation: 45, autoSkip: true, maxTicksLimit: 8 },
-          grid: { color: "rgba(255,255,255,0.03)" } },
-        y: { ticks: { color: "#b8c1d9", font: { family: "Vazirmatn" } },
-          grid: { color: "rgba(255,255,255,0.05)" } }
-      }
-    }
-  });
-  document.getElementById("equity-stats").innerHTML = `
-    <div class="equity-stat"><div class="label">💰 سود کل</div><div class="value ${cumulative >= 0 ? 'pos' : 'neg'}">${cumulative >= 0 ? '+' : ''}${cumulative.toFixed(2)}</div></div>
-    <div class="equity-stat"><div class="label">📈 اوج سرمایه</div><div class="value pos">+${peak.toFixed(2)}</div></div>
-    <div class="equity-stat"><div class="label">📉 Max Drawdown</div><div class="value neg">-${maxDrawdown.toFixed(2)}</div></div>
-    <div class="equity-stat"><div class="label">🎯 معاملات</div><div class="value">${closed.length}</div></div>
-  `;
 }
 
 function renderTable(history) {
-  if (history.length === 0) {
-    document.getElementById("table-wrap").innerHTML =
-      '<div class="empty">📭 هنوز هیچ سیگنالی ثبت نشده</div>';
+  if (!history.length) {
+    document.getElementById("table-wrap").innerHTML = '<div class="empty">📭 هنوز سیگنالی ثبت نشده</div>';
     return;
   }
-  let html = '<table><thead><tr>' +
-    '<th>زمان</th><th>نوع</th><th>نتیجه</th><th>ورود</th>' +
-    '<th class="hide-mobile">سود</th>' +
-    '<th class="hide-mobile">RSI</th></tr></thead><tbody>';
-  history.slice(0, 50).forEach((h, idx) => {
-    const sideBadge = h.side === "BUY"
-      ? '<span class="badge buy">🟢 BUY</span>'
-      : '<span class="badge sell">🔴 SELL</span>';
-    const resultBadge = getResultBadge(h.result);
-    let pnlText = "—";
-    let pnlColor = "#8892b0";
-    if (h.pnl != null) {
-      pnlText = (h.pnl >= 0 ? "+" : "") + h.pnl.toFixed(2);
-      pnlColor = h.pnl >= 0 ? "#4ade80" : "#f87171";
+
+  let html = `<table>
+    <thead><tr>
+      <th>زمان</th><th>استراتژی</th><th>نوع</th>
+      <th>کیفیت</th><th>نتیجه</th><th class="hide-mobile">ورود</th>
+    </tr></thead><tbody>`;
+
+  history.forEach((t, i) => {
+    const strategy = t.strategy || "RANGE";
+    const strategyHtml = strategy === "TREND" 
+      ? '<span class="badge trend">📈 Trend</span>' 
+      : '<span class="badge range">🔄 Range</span>';
+
+    let gradeHtml = "—";
+    if (t.quality && t.quality.grade) {
+      const g = t.quality.grade;
+      gradeHtml = `<span class="badge grade-${g}">${t.quality.score} ${g}</span>`;
     }
-    html += `<tr onclick="openModal(${idx})">` +
-      '<td>' + formatTime(h.sent_at) + '</td>' +
-      '<td>' + sideBadge + '</td>' +
-      '<td>' + resultBadge + '</td>' +
-      '<td style="color:#ffd700; font-weight:700;">' + (h.entry || "—") + '</td>' +
-      '<td class="hide-mobile" style="color:' + pnlColor + '; font-weight:700;">' + pnlText + '</td>' +
-      '<td class="hide-mobile">' + (h.rsi || "—") + '</td>' +
-      '</tr>';
+
+    html += `
+      <tr onclick="showDetails(${i})">
+        <td>${formatTime(t.sent_at)}</td>
+        <td>${strategyHtml}</td>
+        <td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${t.side}</span></td>
+        <td>${gradeHtml}</td>
+        <td>${getResultBadge(t.result)}</td>
+        <td class="hide-mobile">${t.entry || '—'}</td>
+      </tr>`;
   });
-  html += '</tbody></table>';
+
+  html += "</tbody></table>";
   document.getElementById("table-wrap").innerHTML = html;
 }
 
-function openModal(idx) {
-  const h = currentHistory[idx];
-  if (!h) return;
-  const sideBadge = h.side === "BUY"
-    ? '<span class="badge buy">🟢 BUY</span>'
-    : '<span class="badge sell">🔴 SELL</span>';
-  let resultHtml = "";
-  if (h.result === "WIN") {
-    resultHtml = `<div class="result-box win">✅ WIN (+${(h.pnl || 0).toFixed(2)})</div>`;
-  } else if (h.result === "LOSS") {
-    resultHtml = `<div class="result-box loss">❌ LOSS (${(h.pnl || 0).toFixed(2)})</div>`;
-  } else {
-    resultHtml = `<div class="result-box open">⏳ در جریان — منتظر TP/SL</div>`;
+function renderCharts(history) {
+  const wins = history.filter(t => t.result === "WIN").length;
+  const losses = history.filter(t => t.result === "LOSS").length;
+  const opens = history.filter(t => !t.result).length;
+  
+  if (resultChart) resultChart.destroy();
+  const rc = document.getElementById("resultChart");
+  if (rc) {
+    resultChart = new Chart(rc, {
+      type: 'doughnut',
+      data: {
+        labels: ['برد', 'باخت', 'در جریان'],
+        datasets: [{ data: [wins, losses, opens], backgroundColor: ['#4ade80', '#f87171', '#ffd700'], borderWidth: 0 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#e8ecf5' } } } }
+    });
   }
-  let riskReward = "—", slDist = "—", tpDist = "—";
-  if (h.entry && h.sl && h.tp) {
-    const risk = Math.abs(h.entry - h.sl);
-    const reward = Math.abs(h.tp - h.entry);
-    if (risk > 0) {
-      riskReward = "1 : " + (reward / risk).toFixed(2);
-      slDist = risk.toFixed(2);
-      tpDist = reward.toFixed(2);
-    }
+  
+  if (tfChart) tfChart.destroy();
+  const tc = document.getElementById("tfChart");
+  if (tc) {
+    const tf5 = history.filter(t => t.timeframe === "5min").length;
+    const tf15 = history.filter(t => t.timeframe === "15min").length;
+    tfChart = new Chart(tc, {
+      type: 'bar',
+      data: { labels: ['M5', 'M15'], datasets: [{ label: 'تعداد', data: [tf5, tf15], backgroundColor: ['#ffd700', '#4ade80'] }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#e8ecf5' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { color: '#e8ecf5' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
   }
-  let rsiClass = "";
-  if (h.rsi) { if (h.rsi > 70) rsiClass = "bad"; else if (h.rsi < 30) rsiClass = "good"; }
-  let adxClass = "";
-  if (h.adx) { if (h.adx > 25) adxClass = "good"; else if (h.adx < 15) adxClass = "bad"; }
-  const exitRow = h.exit_price
-    ? `<div class="price-item exit"><div class="label">🏁 خروج</div><div class="value">${h.exit_price}</div></div>` : "";
-  const html = `
-    <div class="modal-header">${sideBadge}<h3>Gold ${h.side}</h3><div class="time">⏰ ${formatTime(h.sent_at, true)}</div></div>
-    ${resultHtml}
-    <div class="modal-section">
-      <h4>💰 قیمت‌ها</h4>
-      <div class="price-grid">
-        <div class="price-item entry"><div class="label">💵 ورود</div><div class="value">${h.entry || "—"}</div></div>
-        <div class="price-item sl"><div class="label">🛑 حد ضرر</div><div class="value">${h.sl || "—"}</div></div>
-        <div class="price-item tp"><div class="label">🎯 حد سود</div><div class="value">${h.tp || "—"}</div></div>
-        ${exitRow}
-      </div>
-    </div>
-    <div class="modal-section">
-      <h4>📊 نسبت ریسک به ریوارد</h4>
-      <div class="risk-info">
-        <div class="item"><div class="label">R:R</div><div class="value">${riskReward}</div></div>
-        <div class="item"><div class="label">فاصله SL / TP</div><div class="value">${slDist} / ${tpDist}</div></div>
-      </div>
-    </div>
-    <div class="modal-section">
-      <h4>📈 اندیکاتورها</h4>
-      <div class="indicator-list">
-        <div class="indicator-row"><span class="name">⏱ تایم‌فریم</span><span class="val">${h.timeframe || "—"}</span></div>
-        <div class="indicator-row"><span class="name">📊 RSI (14)</span><span class="val ${rsiClass}">${h.rsi || "—"}</span></div>
-        <div class="indicator-row"><span class="name">📉 ADX (14)</span><span class="val ${adxClass}">${h.adx || "—"}</span></div>
-        <div class="indicator-row"><span class="name">📈 ATR (14)</span><span class="val">${h.atr || "—"}</span></div>
-      </div>
-    </div>
-    <button class="share-btn" onclick="shareSignal(${idx})">📤 اشتراک‌گذاری سیگنال</button>
-  `;
-  document.getElementById("modal-content").innerHTML = html;
-  document.getElementById("modal").classList.add("active");
-  document.body.style.overflow = "hidden";
+  
+  if (equityChart) equityChart.destroy();
+  const ec = document.getElementById("equityChart");
+  if (ec) {
+    const sorted = [...history].filter(t => t.result).reverse();
+    let cum = 0;
+    const labels = ['شروع'];
+    const data = [0];
+    sorted.forEach(t => {
+      cum += (t.pnl || 0);
+      labels.push(formatTime(t.sent_at));
+      data.push(round2(cum));
+    });
+    
+    equityChart = new Chart(ec, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{ label: 'سرمایه', data: data, borderColor: '#ffd700', backgroundColor: 'rgba(255, 215, 0, 0.1)', fill: true, tension: 0.3, pointBackgroundColor: '#ffd700', pointRadius: 4 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8892b0', maxRotation: 45, minRotation: 0, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { color: '#8892b0' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
+  }
+  
+  const equityStatsEl = document.getElementById("equity-stats");
+  if (equityStatsEl) {
+    let peak = 0, maxDd = 0, cum = 0;
+    history.filter(t => t.result).reverse().forEach(t => {
+      cum += (t.pnl || 0);
+      peak = Math.max(peak, cum);
+      maxDd = Math.max(maxDd, peak - cum);
+    });
+    
+    const totalPnl = round2(history.reduce((s, t) => s + (t.pnl || 0), 0));
+    
+    equityStatsEl.innerHTML = `
+      <div class="equity-stat"><div class="label">💰 سود کل</div><div class="value ${totalPnl >= 0 ? 'pos' : 'neg'}">${totalPnl >= 0 ? '+' : ''}${totalPnl}</div></div>
+      <div class="equity-stat"><div class="label">📈 اوج سرمایه</div><div class="value">${round2(peak)}</div></div>
+      <div class="equity-stat"><div class="label">📉 Max Drawdown</div><div class="value neg">${round2(-maxDd)}</div></div>
+      <div class="equity-stat"><div class="label">🎯 معاملات</div><div class="value">${history.filter(t => t.result).length}</div></div>
+    `;
+  }
 }
 
-async function shareSignal(idx) {
-  const h = currentHistory[idx];
-  if (!h) return;
-  const btn = document.querySelector('.share-btn');
-  const originalText = btn ? btn.textContent : '';
+// ─── Modal ───
+function showDetails(index) {
+  const t = currentHistory[index];
+  if (!t) return;
 
-  const sideEmoji = h.side === "BUY" ? "🟢" : "🔴";
-  const tf = (h.timeframe || "5min").replace("min", "M");
-
-  let pnlLine = "";
-  if (h.result === "WIN" && h.pnl != null) pnlLine = `\n🎉 نتیجه: ✅ WIN (+${h.pnl.toFixed(2)})`;
-  else if (h.result === "LOSS" && h.pnl != null) pnlLine = `\n❌ نتیجه: LOSS (${h.pnl.toFixed(2)})`;
-  else if (!h.result) pnlLine = `\n⏳ در جریان — منتظر TP/SL`;
-
-  const shareText =
-    `${sideEmoji} GOLD ${h.side} — ${tf}\n` +
-    `━━━━━━━━━━━━━━━━━━\n` +
-    `💵 ورود: ${h.entry || "—"}\n` +
-    `🛑 حد ضرر: ${h.sl || "—"}\n` +
-    `🎯 حد سود: ${h.tp || "—"}\n` +
-    `📊 RSI: ${h.rsi || "—"} | ADX: ${h.adx || "—"}\n` +
-    `📈 ATR: ${h.atr || "—"}` +
-    pnlLine +
-    `\n⏰ ${formatTime(h.sent_at, true)}\n` +
-    `━━━━━━━━━━━━━━━━━━\n` +
-    `📱 GoldPro V2`;
-
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: `سیگنال ${h.side}`, text: shareText });
-      return;
-    } catch (err) {
-      if (err.name === 'AbortError') return;
-    }
+  const strategy = t.strategy || "RANGE";
+  const strategyLabel = strategy === "TREND" ? "📈 Trend (EMA+MACD)" : "🔄 Range (RSI)";
+  
+  let qualityHtml = "";
+  if (t.quality) {
+    const q = t.quality;
+    const gradeEmoji = {A: "🏆", B: "✅", C: "⚠️", D: "🚫"}[q.grade] || "❔";
+    qualityHtml = `
+      <div class="modal-section">
+        <h4>⭐ کیفیت سیگنال</h4>
+        <div class="result-box ${q.grade === 'A' || q.grade === 'B' ? 'win' : 'open'}" style="font-size: 1.1rem; padding: 12px;">
+          ${gradeEmoji} امتیاز: ${q.score}/100 — گرید: ${q.grade}
+        </div>
+        ${q.flags && q.flags.length ? `<div style="color:#4ade80; font-size:0.85rem; margin-top:10px;">✅ ${q.flags.join(' | ')}</div>` : ''}
+        ${q.warnings && q.warnings.length ? `<div style="color:#f87171; font-size:0.85rem; margin-top:6px;">⚠️ ${q.warnings.join(' | ')}</div>` : ''}
+      </div>
+    `;
   }
 
-  try {
-    await navigator.clipboard.writeText(shareText);
-    if (btn) {
-      btn.textContent = '✅ کپی شد!';
-      btn.classList.add('copied');
-      setTimeout(() => {
-        btn.textContent = originalText;
-        btn.classList.remove('copied');
-      }, 2000);
-    }
-  } catch (err) {
-    alert('اشتراک:\n\n' + shareText);
-  }
+  const rr = t.rr ? ` (R:R 1:${t.rr})` : "";
+  const pricesHtml = `
+    <div class="modal-section">
+      <h4>💰 قیمت‌ها${rr}</h4>
+      <div class="price-grid">
+        <div class="price-item entry"><div class="label">ورود</div><div class="value">${t.entry || '—'}</div></div>
+        <div class="price-item sl"><div class="label">حد ضرر</div><div class="value">${t.sl || '—'}</div></div>
+        <div class="price-item tp"><div class="label">حد سود</div><div class="value">${t.tp || '—'}</div></div>
+        ${t.exit_price ? `<div class="price-item exit"><div class="label">خروج</div><div class="value">${t.exit_price}</div></div>` : ''}
+      </div>
+    </div>
+  `;
+
+  const indHtml = `
+    <div class="modal-section">
+      <h4>📊 اندیکاتورها</h4>
+      <div class="indicator-list">
+        <div class="indicator-row"><span class="name">RSI</span><span class="val">${t.rsi || '—'}</span></div>
+        <div class="indicator-row"><span class="name">ADX</span><span class="val">${t.adx || '—'}</span></div>
+        <div class="indicator-row"><span class="name">ATR</span><span class="val">${t.atr || '—'}</span></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("modal-content").innerHTML = `
+    <div class="modal-header">
+      <div class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}" style="font-size: 1.2rem; margin-bottom: 8px;">
+        ${t.side} — ${t.timeframe || ''}
+      </div>
+      <div class="badge ${strategy === 'TREND' ? 'trend' : 'range'}" style="margin-bottom: 12px;">
+        ${strategyLabel}
+      </div>
+      <h3>${t.result ? getResultBadge(t.result) : '⏳ در جریان'}</h3>
+      <div class="time">${formatTime(t.sent_at, true)}</div>
+    </div>
+
+    ${t.result ? `
+      <div class="modal-section">
+        <div class="result-box ${t.result.toLowerCase()}">
+          ${t.result === 'WIN' ? '🏆' : '❌'} ${t.result}
+          ${t.pnl ? `(${t.pnl > 0 ? '+' : ''}${t.pnl})` : ''}
+        </div>
+      </div>` : ''}
+
+    ${qualityHtml}
+    ${pricesHtml}
+    ${indHtml}
+
+    <div class="modal-section">
+      <h4>📝 دلیل سیگنال</h4>
+      <div style="color: #8892b0; font-size: 0.9rem; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+        ${t.reason || '—'}
+      </div>
+    </div>
+  `;
+
+  document.getElementById("modal").classList.add("active");
 }
 
 function closeModal(e) {
-  if (e && e.target !== e.currentTarget) return;
+  if (e && e.target !== e.currentTarget && !e.target.classList.contains("modal-close")) return;
   document.getElementById("modal").classList.remove("active");
-  document.body.style.overflow = "";
 }
 
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal(); });
-
-let countdown = 60;
-function updateClock() {
+// ─── Clock & Auto Refresh ───
+function tick() {
   const now = new Date();
-  document.getElementById("live-clock").textContent =
-    now.toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-function updateCountdown() {
+  document.getElementById("live-clock").textContent = now.toLocaleTimeString("fa-IR");
   countdown--;
-  if (countdown < 0) countdown = 60;
   document.getElementById("live-countdown").textContent = countdown;
-}
-setInterval(updateClock, 1000);
-setInterval(updateCountdown, 1000);
-updateClock();
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', async () => {
-    try {
-      const reg = await navigator.serviceWorker.register('/goldpro-v2/sw.js', {
-        scope: '/goldpro-v2/',
-        updateViaCache: 'none'
-      });
-      console.log('✅ SW registered:', reg.scope);
-      reg.update();
-      reg.addEventListener('updatefound', () => {
-        const newWorker = reg.installing;
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'activated' && navigator.serviceWorker.controller) {
-            console.log('🔄 New version available, reloading...');
-            window.location.reload();
-          }
-        });
-      });
-    } catch (err) {
-      console.log('❌ SW failed:', err);
-    }
-  });
+  if (countdown <= 0) {
+    countdown = 60;
+    loadData();
+  }
 }
 
-fetchGoldPrice();
-setInterval(fetchGoldPrice, 60000);
-
+setInterval(tick, 1000);
 loadData();
-setInterval(loadData, 60000);
+
+if (localStorage.getItem("notify_enabled") === "1") {
+  document.getElementById("notify-btn").textContent = "🔔 نوتیفیکیشن فعال";
+  document.getElementById("notify-btn").style.background = "linear-gradient(135deg, #4ade80, #22c55e)";
+}
 </script>
 </body>
 </html>
