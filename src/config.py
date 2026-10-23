@@ -35,27 +35,27 @@ MACD_SLOW = 26
 MACD_SIGNAL = 9
 
 # ==============================================================
-#  SL/TP - ساده
+#  SL/TP - محدودیت‌دار
 # ==============================================================
 SL_ATR_MULT = 2.5
 TP_ATR_MULT = 3.5
 MIN_SL_USD = 3.0
 MIN_TP_USD = 4.5
 
-# ==============================================================
-#  Strategy Parameters
-# ==============================================================
-# این‌ها فقط برای مرجع‌ان — استراتژی خودش مقادیر پیش‌فرض داره
-RSI_OVERBOUGHT = 70.0
-RSI_OVERSOLD = 30.0
-LOOKBACK = 50
-MAX_BARS_SINCE_PEAK = 2
-MIN_DECLINE = 1.0
+# ⚠️ حداکثر فاصله‌ی مجاز
+MAX_SL_USD = 15.0
+MAX_TP_USD = 21.0
 
 # ==============================================================
-#  Cooldown
+#  Quality Filter — فقط اینا ارسال می‌شن
 # ==============================================================
-SIGNAL_COOLDOWN_MIN = 60
+ALLOWED_GRADES = ["A", "B"]   # ← C و D اصلاً فرستاده نمی‌شن
+
+# ==============================================================
+#  Risk Management
+# ==============================================================
+MAX_OPEN_TRADES = 1       # حداکثر ۱ ترید باز در هر زمان
+SIGNAL_COOLDOWN_MIN = 60  # حداقل ۶۰ دقیقه بین دو سیگنال
 
 # ==== Ntfy ====
 NTFY_TOPIC = "goldpro_roohollah_2026"
@@ -75,24 +75,18 @@ DASHBOARD_URL = "https://teachdiagram-create.github.io/goldpro-v2/"
 
 
 # ==============================================================
-#  Helper: SL/TP Calculator
+#  Helper: SL/TP Calculator (با Limit)
 # ==============================================================
 def compute_sl_tp(side: str, price: float, atr: float):
-    """
-    محاسبه SL/TP.
-
-    - SL = max(SL_ATR_MULT × ATR, MIN_SL_USD)
-    - TP = max(TP_ATR_MULT × ATR, MIN_TP_USD)
-    - بدون ATR clamp (چون فیلتر حذف شد)
-
-    Returns:
-        (sl, tp, sl_dist, tp_dist, rr) یا (None, None, None, None, None)
-    """
     if atr is None or atr <= 0 or price is None or price <= 0:
         return None, None, None, None, None
 
     sl_dist = max(SL_ATR_MULT * atr, MIN_SL_USD)
     tp_dist = max(TP_ATR_MULT * atr, MIN_TP_USD)
+
+    # 🚨 اعمال سقف
+    sl_dist = min(sl_dist, MAX_SL_USD)
+    tp_dist = min(tp_dist, MAX_TP_USD)
 
     if side == "SELL":
         sl = round(price + sl_dist, 2)
