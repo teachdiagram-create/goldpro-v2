@@ -1,5 +1,10 @@
 """
 Signal Logic - Interface between strategies and infrastructure.
+
+استراتژی‌های موجود:
+1. RANGE: RSI Double Top/Bottom
+2. TREND: EMA Cross + MACD
+3. (اینجا استراتژی جدید اضافه کن)
 """
 from src.config import compute_sl_tp
 from src.strategy import (
@@ -43,7 +48,7 @@ def _compute_quality(adx_val: float, atr_val: float,
     else:
         score -= 15; warnings.append("ATR خیلی بالا")
 
-    # RSI (بسته به استراتژی)
+    # RSI
     if rsi_val is not None:
         if strategy == "RANGE":
             if side == "SELL" and rsi_val <= 65:
@@ -110,46 +115,52 @@ def evaluate_signal(df, timeframe: str = "5min"):
         "time": dt_str,
     }
 
-    # 1) RANGE STRATEGY
+    # ══════════════════════════════════════════
+    #  لیست استراتژی‌ها (پویا)
+    #  برای اضافه کردن استراتژی جدید، فقط این لیست رو گسترش بده
+    # ══════════════════════════════════════════
+    strategies_to_check = []
+
+    # 1. RANGE
     sell_setup = detect_double_top_sell(rsi_series)
     if sell_setup:
-        sl, tp, sd, td, rr = compute_sl_tp("SELL", price, atr_)
-        if sl is not None:
-            return {
-                **base, "side": "SELL", "entry": round(price, 2),
-                "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
-                "strategy": "RANGE",
-                "quality": _compute_quality(adx_, atr_, rsi_, "SELL", "RANGE"),
-                "reason": _build_reason(sell_setup, "SELL", "RANGE"),
-                "valid": True,
-            }
+        strategies_to_check.append(("SELL", sell_setup, "RANGE"))
 
     buy_setup = detect_double_bottom_buy(rsi_series)
     if buy_setup:
-        sl, tp, sd, td, rr = compute_sl_tp("BUY", price, atr_)
-        if sl is not None:
-            return {
-                **base, "side": "BUY", "entry": round(price, 2),
-                "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
-                "strategy": "RANGE",
-                "quality": _compute_quality(adx_, atr_, rsi_, "BUY", "RANGE"),
-                "reason": _build_reason(buy_setup, "BUY", "RANGE"),
-                "valid": True,
-            }
+        strategies_to_check.append(("BUY", buy_setup, "RANGE"))
 
-    # 2) TREND STRATEGY
+    # 2. TREND
     trend_signal = detect_trend_signal(closed)
     if trend_signal:
-        side = trend_signal["direction"]
+        strategies_to_check.append((trend_signal["direction"], trend_signal, "TREND"))
+
+    # 3. BREAKOUT (مثال برای آینده)
+    # breakout_signal = detect_breakout(closed)
+    # if breakout_signal:
+    #     strategies_to_check.append((breakout_signal["direction"], breakout_signal, "BREAKOUT"))
+
+    # حالا اولین سیگنال معتبر رو برگردون
+    for side, setup, strategy in strategies_to_check:
         sl, tp, sd, td, rr = compute_sl_tp(side, price, atr_)
-        if sl is not None:
-            return {
-                **base, "side": side, "entry": round(price, 2),
-                "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
-                "strategy": "TREND",
-                "quality": _compute_quality(adx_, atr_, rsi_, side, "TREND"),
-                "reason": _build_reason(trend_signal, side, "TREND"),
-                "valid": True,
-            }
+        if sl is None:
+            continue
+
+        quality = _compute_quality(adx_, atr_, rsi_, side, strategy)
+
+        return {
+            **base,
+            "side": side,
+            "entry": round(price, 2),
+            "sl": sl,
+            "tp": tp,
+            "sl_distance": sd,
+            "tp_distance": td,
+            "rr": rr,
+            "strategy": strategy,
+            "quality": quality,
+            "reason": _build_reason(setup, side, strategy),
+            "valid": True,
+        }
 
     return None
