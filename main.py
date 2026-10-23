@@ -1,11 +1,12 @@
 from datetime import datetime
-from src.config import TIMEFRAMES, USE_GIST
+from src.config import TIMEFRAMES, USE_GIST, ALLOWED_GRADES, MAX_OPEN_TRADES
 from src.data_fetcher import fetch_ohlc
 from src.indicators import add_indicators
 from src.signal_logic import evaluate_signal
 from src.telegram_bot import send_telegram, format_message
 from src.notifier import send_signal_ntfy, send_win_ntfy
 from src.sms_sender import send_signal_sms, send_win_sms
+from src.risk_manager import has_open_trade, can_send_signal
 
 
 if USE_GIST:
@@ -36,7 +37,6 @@ def process_timeframe(tf, state):
         print(f"❌ {tf}: fetch failed - {e}")
         return state, False, None
 
-    # ذخیره قیمت لحظه‌ای از M5
     if tf == "5min" and df is not None and len(df) > 1:
         try:
             last_close = float(df.iloc[-1]["close"])
@@ -52,12 +52,28 @@ def process_timeframe(tf, state):
         print(f"⏸ {tf}: NO SIGNAL")
         return state, False, df
 
-    print(f"✅ {tf}: {signal['side']} @ {signal['entry']}")
+    grade = signal["quality"]["grade"]
+    score = signal["quality"]["score"]
+    strategy = signal["strategy"]
+    print(f"✅ {tf}: {strategy} {signal['side']} @ {signal['entry']} | "
+          f"Grade={grade} Score={score}")
 
+    # ─── فیلتر ۱: Quality ───
+    if grade not in ALLOWED_GRADES:
+        print(f"🚫 {tf}: Grade {grade} not in {ALLOWED_GRADES}, skipped")
+        return state, False, df
+
+    # ─── فیلتر ۲: ترید باز ───
+    if has_open_trade(state):
+        print(f"🚫 {tf}: Open trade exists, skipped")
+        return state, False, df
+
+    # ─── فیلتر ۳: Cooldown ───
     if not should_send(signal, state):
         print(f"⏸ {tf}: Cooldown active, skipped")
         return state, False, df
 
+    # ارسال
     ok = send_telegram(format_message(signal))
     if ok:
         state = mark_sent(signal, state)
@@ -83,9 +99,14 @@ def process_timeframe(tf, state):
 
 def main():
     print("▶ GoldPro V2 started")
+    print(f"   Allowed grades: {ALLOWED_GRADES}")
+    print(f"   Max open trades: {MAX_OPEN_TRADES}")
 
     state = load_state()
     print(f"📦 State keys: {list(state.keys())}")
+
+    open_count = sum(1 for t in state.get("history", []) if t.get("result") is None)
+    print(f"📊 Open trades: {open_count}")
 
     state_changed = False
     dataframes = {}
@@ -100,14 +121,9 @@ def main():
         except Exception as e:
             print(f"❌ {tf} outer error: {e}")
 
-    # اگه قیمت جدید گرفته شده، state رو ذخیره کن
     current_price = state.get("current_price")
-    print(f"🔍 current_price value: {current_price}")
     if current_price is not None:
         state_changed = True
-        print(f"💰 Price detected: {current_price}")
-    else:
-        print("⚠️ No current_price to save")
 
     if USE_GIST and dataframes:
         print(f"\n🔎 Checking open trades...")
@@ -127,7 +143,6 @@ def main():
                         except Exception as e:
                             print(f"⚠️ WIN SMS error: {e}")
                         state["last_win_notified"] = trade["closed_at"]
-                        print(f"🔔 WIN notifications sent")
 
             stats = calculate_win_stats(state.get("history", []))
             if stats:
@@ -138,15 +153,13 @@ def main():
         except Exception as e:
             print(f"❌ update_open_trades error: {e}")
 
-    # ذخیره state
-    print(f"\n💾 Saving... (state_changed={state_changed})")
     if state_changed:
         if save_state(state):
             print("💾 State saved ✅")
         else:
             print("❌ Failed to save state")
     else:
-        print("⏸ No changes, skipping save")
+        print("⏸ No changes")
 
 
 if __name__ == "__main__":
