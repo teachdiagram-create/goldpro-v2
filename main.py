@@ -57,8 +57,7 @@ def process_timeframes(state, dataframes):
     # 2. دیتای دلار (DXY) برای استراتژی همبستگی
     df_dxy = None
     try:
- 
-df_dxy = fetch_dxy_stooq("5min")
+        df_dxy = fetch_dxy_stooq("5min")
         df_dxy = add_indicators(df_dxy)
         print(f"✅ DXY fetched: {len(df_dxy)} candles")
     except Exception as e:
