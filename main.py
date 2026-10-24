@@ -7,6 +7,7 @@ from src.telegram_bot import send_telegram, format_message
 from src.notifier import send_signal_ntfy, send_win_ntfy
 from src.sms_sender import send_signal_sms, send_win_sms
 from src.risk_manager import has_open_trade
+from src.data_fetcher import fetch_dxy_yfinance
 
 
 if USE_GIST:
@@ -55,7 +56,7 @@ def process_timeframes(state, dataframes):
     # 2. دیتای دلار (DXY) برای استراتژی همبستگی
     df_dxy = None
     try:
-        df_dxy = fetch_dxy_stooq("5min")
+        df_dxy = fetch_dxy_yfinance("5min")
         if df_dxy is not None and len(df_dxy) > 0:
             df_dxy = add_indicators(df_dxy)
             print(f"✅ DXY (Stooq) fetched: {len(df_dxy)} candles")
