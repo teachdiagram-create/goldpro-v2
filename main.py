@@ -1,14 +1,12 @@
 from datetime import datetime
-from src.config import TIMEFRAMES, USE_GIST, ALLOWED_GRADES, MAX_OPEN_TRADES, DXY_SYMBOL
-from src.data_fetcher import fetch_ohlc
+from src.config import TIMEFRAMES, USE_GIST, ALLOWED_GRADES, MAX_OPEN_TRADES
+from src.data_fetcher import fetch_ohlc, fetch_dxy_stooq
 from src.indicators import add_indicators
 from src.signal_logic import evaluate_signal
 from src.telegram_bot import send_telegram, format_message
 from src.notifier import send_signal_ntfy, send_win_ntfy
 from src.sms_sender import send_signal_sms, send_win_sms
 from src.risk_manager import has_open_trade
-       
-from src.data_fetcher import fetch_dxy_stooq
 
 
 if USE_GIST:
@@ -30,7 +28,7 @@ else:
 
 
 def process_timeframes(state, dataframes):
-    print(f"\n🔍 Analyzing Gold M5 & M15 + DXY...")
+    print(f"\n🔍 Analyzing Gold M5 & M15 + DXY (Stooq)...")
 
     try:
         # 1. دیتای طلا (M5 و M15)
@@ -58,10 +56,15 @@ def process_timeframes(state, dataframes):
     df_dxy = None
     try:
         df_dxy = fetch_dxy_stooq("5min")
-        df_dxy = add_indicators(df_dxy)
-        print(f"✅ DXY fetched: {len(df_dxy)} candles")
+        if df_dxy is not None and len(df_dxy) > 0:
+            df_dxy = add_indicators(df_dxy)
+            print(f"✅ DXY (Stooq) fetched: {len(df_dxy)} candles")
+        else:
+            print("⚠️ DXY fetch failed (empty) - Correlation disabled")
+            df_dxy = None
     except Exception as e:
-        print(f"⚠️ DXY fetch failed ({DXY_SYMBOL}) - Correlation strategy disabled: {e}")
+        print(f"⚠️ DXY fetch failed - Correlation disabled: {e}")
+        df_dxy = None
 
     # 3. ارزیابی سیگنال (کل دیتا یکجا داده می‌شه)
     signal = evaluate_signal(df_m5, df_m15, df_dxy, df_dxy)
@@ -142,7 +145,6 @@ def main():
     if USE_GIST and dataframes:
         print(f"\n🔎 Checking open trades...")
         try:
-            # نکته: update_open_trades باید دیکشنری dataframes رو بفهمه
             state, closed_count = update_open_trades(state, dataframes)
             if closed_count > 0:
                 state_changed = True
