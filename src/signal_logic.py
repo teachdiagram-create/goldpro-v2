@@ -1,16 +1,23 @@
 """
 Signal Logic - Interface between strategies and infrastructure.
 
-استراتژی‌های موجود:
+استراتژی‌ها:
 1. RANGE: RSI Double Top/Bottom
 2. TREND: EMA Cross + MACD
-3. (اینجا استراتژی جدید اضافه کن)
+3. CORRELATION: DXY + M15 trend + M5 trigger
 """
-from src.config import compute_sl_tp
+from src.config import compute_sl_tp, SL_CORR_MULT, TP_CORR_MULT, MAX_SL_USD
 from src.strategy import (
     detect_double_top_sell,
     detect_double_bottom_buy,
     detect_trend_signal,
+)
+from src.strategy_correlation import (
+    check_correlation,
+    check_news_blackout,
+    check_trading_hours,
+    detect_trend_m15,
+    detect_trigger_m5,
 )
 
 
@@ -55,11 +62,7 @@ def _compute_quality(adx_val: float, atr_val: float,
                 score += 10; flags.append("RSI تأیید می‌کند")
             elif side == "BUY" and rsi_val >= 35:
                 score += 10; flags.append("RSI تأیید می‌کند")
-            elif side == "SELL" and rsi_val >= 70:
-                score -= 10; warnings.append("RSI هنوز بالا")
-            elif side == "BUY" and rsi_val <= 30:
-                score -= 10; warnings.append("RSI هنوز پایین")
-        elif strategy == "TREND":
+        elif strategy in ("TREND", "CORRELATION"):
             if side == "BUY" and 40 <= rsi_val <= 70:
                 score += 10; flags.append("RSI در محدوده")
             elif side == "SELL" and 30 <= rsi_val <= 60:
@@ -77,38 +80,41 @@ def _compute_quality(adx_val: float, atr_val: float,
 def _build_reason(setup: dict, side: str, strategy: str) -> str:
     if strategy == "RANGE":
         if side == "SELL":
-            p1 = setup.get("peak1_value")
-            p2 = setup.get("peak2_value")
-            cur = setup.get("current_rsi")
-            if p1 is not None and p2 is not None:
-                return f"RSI double top: {p1} -> {p2} (now {cur})"
+            p1 = setup.get("peak1_value"); p2 = setup.get("peak2_value")
+            return f"RSI double top: {p1} -> {p2}"
         elif side == "BUY":
-            t1 = setup.get("trough1_value")
-            t2 = setup.get("trough2_value")
-            cur = setup.get("current_rsi")
-            if t1 is not None and t2 is not None:
-                return f"RSI double bottom: {t1} -> {t2} (now {cur})"
+            t1 = setup.get("trough1_value"); t2 = setup.get("trough2_value")
+            return f"RSI double bottom: {t1} -> {t2}"
     elif strategy == "TREND":
-        ef = setup.get("ema_fast")
-        es = setup.get("ema_slow")
-        return f"EMA Cross ({ef} vs {es}) + MACD"
+        return f"EMA Cross + MACD"
+    elif strategy == "CORRELATION":
+        return f"DXY corr + M15 trend {side} + M5 trigger"
+    return f"{side} signal"
+
+
+def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
+    """
+    ارزیابی سیگنال با ۳ استراتژی.
     
-    return setup.get("reason", f"{side} signal")
+    Args:
+        df_m5: DataFrame طلا در M5
+        df_m15: DataFrame طلا در M15
+        df_dxy_m5: DataFrame دلار در M5 (اختیاری)
+        df_dxy_m15: DataFrame دلار در M15 (اختیاری)
+    """
+    # ─── آماده‌سازی M5 ───
+    closed_m5 = df_m5.iloc[:-1]
+    current_m5 = closed_m5.iloc[-1]
+    rsi_series_m5 = closed_m5["rsi"]
 
-
-def evaluate_signal(df, timeframe: str = "5min"):
-    closed = df.iloc[:-1]
-    current = closed.iloc[-1]
-    rsi_series = closed["rsi"]
-
-    price = float(current["close"])
-    atr_ = float(current["atr"])
-    adx_ = float(current["adx"])
-    rsi_ = float(current["rsi"])
-    dt_str = str(current["datetime"])
+    price = float(current_m5["close"])
+    atr_ = float(current_m5["atr"])
+    adx_ = float(current_m5["adx"])
+    rsi_ = float(current_m5["rsi"])
+    dt_str = str(current_m5["datetime"])
 
     base = {
-        "timeframe": timeframe,
+        "timeframe": "5min",
         "rsi": round(rsi_, 1),
         "adx": round(adx_, 1),
         "atr": round(atr_, 2),
@@ -116,51 +122,100 @@ def evaluate_signal(df, timeframe: str = "5min"):
     }
 
     # ══════════════════════════════════════════
-    #  لیست استراتژی‌ها (پویا)
-    #  برای اضافه کردن استراتژی جدید، فقط این لیست رو گسترش بده
+    #  1) CORRELATION STRATEGY (جدید)
     # ══════════════════════════════════════════
-    strategies_to_check = []
+    if df_dxy_m5 is not None and len(df_dxy_m5) > 20 and df_m15 is not None:
+        # فیلتر ساعت
+        hour_ok, hour_reason = check_trading_hours(dt_str)
+        # فیلتر خبر
+        news_blocked, news_reason = check_news_blackout(dt_str)
+        
+        if hour_ok and not news_blocked:
+            # تشخیص روند در M15
+            trend = detect_trend_m15(df_m15.iloc[:-1])
+            
+            if trend in ("BUY", "SELL"):
+                # همبستگی
+                corr_ok, corr_val = check_correlation(df_m5, df_dxy_m5)
+                
+                # تریگر M5
+                trigger_ok = detect_trigger_m5(closed_m5, trend)
+                
+                if corr_ok and trigger_ok:
+                    # SL/TP مخصوص این استراتژی
+                    sl_dist = max(SL_CORR_MULT * atr_, 3.0)
+                    tp_dist = max(TP_CORR_MULT * atr_, 4.5)
+                    sl_dist = min(sl_dist, MAX_SL_USD)
+                    tp_dist = min(tp_dist, MAX_SL_USD * 1.5)
+                    
+                    if trend == "SELL":
+                        sl = round(price + sl_dist, 2)
+                        tp = round(price - tp_dist, 2)
+                    else:
+                        sl = round(price - sl_dist, 2)
+                        tp = round(price + tp_dist, 2)
+                    
+                    rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
+                    
+                    return {
+                        **base,
+                        "side": trend,
+                        "entry": round(price, 2),
+                        "sl": sl,
+                        "tp": tp,
+                        "sl_distance": round(sl_dist, 2),
+                        "tp_distance": round(tp_dist, 2),
+                        "rr": rr,
+                        "strategy": "CORRELATION",
+                        "quality": _compute_quality(adx_, atr_, rsi_, trend, "CORRELATION"),
+                        "reason": f"DXY corr={corr_val} + M15 {trend} + M5 trigger",
+                        "valid": True,
+                    }
 
-    # 1. RANGE
-    sell_setup = detect_double_top_sell(rsi_series)
+    # ══════════════════════════════════════════
+    #  2) RANGE STRATEGY (قبلی)
+    # ══════════════════════════════════════════
+    sell_setup = detect_double_top_sell(rsi_series_m5)
     if sell_setup:
-        strategies_to_check.append(("SELL", sell_setup, "RANGE"))
+        sl, tp, sd, td, rr = compute_sl_tp("SELL", price, atr_)
+        if sl is not None:
+            return {
+                **base, "side": "SELL", "entry": round(price, 2),
+                "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
+                "strategy": "RANGE",
+                "quality": _compute_quality(adx_, atr_, rsi_, "SELL", "RANGE"),
+                "reason": _build_reason(sell_setup, "SELL", "RANGE"),
+                "valid": True,
+            }
 
-    buy_setup = detect_double_bottom_buy(rsi_series)
+    buy_setup = detect_double_bottom_buy(rsi_series_m5)
     if buy_setup:
-        strategies_to_check.append(("BUY", buy_setup, "RANGE"))
+        sl, tp, sd, td, rr = compute_sl_tp("BUY", price, atr_)
+        if sl is not None:
+            return {
+                **base, "side": "BUY", "entry": round(price, 2),
+                "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
+                "strategy": "RANGE",
+                "quality": _compute_quality(adx_, atr_, rsi_, "BUY", "RANGE"),
+                "reason": _build_reason(buy_setup, "BUY", "RANGE"),
+                "valid": True,
+            }
 
-    # 2. TREND
-    trend_signal = detect_trend_signal(closed)
+    # ══════════════════════════════════════════
+    #  3) TREND STRATEGY (قبلی)
+    # ══════════════════════════════════════════
+    trend_signal = detect_trend_signal(closed_m5)
     if trend_signal:
-        strategies_to_check.append((trend_signal["direction"], trend_signal, "TREND"))
-
-    # 3. BREAKOUT (مثال برای آینده)
-    # breakout_signal = detect_breakout(closed)
-    # if breakout_signal:
-    #     strategies_to_check.append((breakout_signal["direction"], breakout_signal, "BREAKOUT"))
-
-    # حالا اولین سیگنال معتبر رو برگردون
-    for side, setup, strategy in strategies_to_check:
+        side = trend_signal["direction"]
         sl, tp, sd, td, rr = compute_sl_tp(side, price, atr_)
-        if sl is None:
-            continue
-
-        quality = _compute_quality(adx_, atr_, rsi_, side, strategy)
-
-        return {
-            **base,
-            "side": side,
-            "entry": round(price, 2),
-            "sl": sl,
-            "tp": tp,
-            "sl_distance": sd,
-            "tp_distance": td,
-            "rr": rr,
-            "strategy": strategy,
-            "quality": quality,
-            "reason": _build_reason(setup, side, strategy),
-            "valid": True,
-        }
+        if sl is not None:
+            return {
+                **base, "side": side, "entry": round(price, 2),
+                "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
+                "strategy": "TREND",
+                "quality": _compute_quality(adx_, atr_, rsi_, side, "TREND"),
+                "reason": _build_reason(trend_signal, side, "TREND"),
+                "valid": True,
+            }
 
     return None
