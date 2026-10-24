@@ -99,3 +99,10 @@ def compute_sl_tp(side: str, price: float, atr: float):
 
     rr = tp_dist / sl_dist if sl_dist > 0 else 0
     return (sl, tp, round(sl_dist, 2), round(tp_dist, 2), round(rr, 2))
+
+# ==============================================================
+#  استراتژی جدید: Correlation + Trend
+# ==============================================================
+SL_CORR_MULT = 1.0     # SL = 1.0 × ATR (طبق درخواستت)
+TP_CORR_MULT = 1.5     # TP = 1.5 × ATR (طبق درخواستت)
+DXY_SYMBOL = "DXY"     # نماد شاخص دلار در TwelveData
