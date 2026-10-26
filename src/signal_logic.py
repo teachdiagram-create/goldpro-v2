@@ -7,10 +7,11 @@ Signal Logic - Interface between strategies and infrastructure.
 3. CORRELATION: DXY + M15 trend + M5 trigger
 
 فیلترها:
-- تعطیلی و بازگشایی بازار (برای جلوگیری از سیگنال‌های نویز)
-- فیلتر ساعت و خبر برای استراتژی Correlation
+- تعطیلی و بازگشایی بازار
+- فیلتر ساعت و خبر برای Correlation
+- اصلاح زمان سیگنال (Timestamp Fix) برای جلوگیری از Repainting
 """
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from src.config import compute_sl_tp, SL_CORR_MULT, TP_CORR_MULT, MAX_SL_USD
 from src.strategy import (
@@ -28,12 +29,7 @@ from src.strategy_correlation import (
 
 
 def _is_market_closed_or_opening(dt_str: str) -> bool:
-    """
-    چک می‌کنه بازار تعطیله یا تو ساعات پرنوسان بازگشاییه.
-    - شنبه: کلاً تعطیل
-    - یکشنبه قبل از ۲۳ UTC: بازگشایی پرنوسان
-    - جمعه بعد از ۲۱ UTC: بسته شدن
-    """
+    """چک میکنه بازار تعطیله یا تو ساعات پرنوسان بازگشاییه."""
     try:
         dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
         if dt.tzinfo is None:
@@ -42,17 +38,9 @@ def _is_market_closed_or_opening(dt_str: str) -> bool:
         weekday = dt.weekday()  # 0=Monday, 5=Saturday, 6=Sunday
         hour = dt.hour
         
-        # ۱. کل شنبه (تعطیل کامل)
-        if weekday == 5:
-            return True
-            
-        # ۲. یکشنبه قبل از ساعت ۲۳ (بازگشایی با نویز و اسپرد بالا)
-        if weekday == 6 and hour < 23:
-            return True
-            
-        # ۳. جمعه بعد از ۲۱ (بسته شدن هفته)
-        if weekday == 4 and hour >= 21:
-            return True
+        if weekday == 5: return True
+        if weekday == 6 and hour < 23: return True
+        if weekday == 4 and hour >= 21: return True
             
         return False
     except Exception:
@@ -143,7 +131,19 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     atr_ = float(current_m5["atr"])
     adx_ = float(current_m5["adx"])
     rsi_ = float(current_m5["rsi"])
-    dt_str = str(current_m5["datetime"])
+    
+    # 🚨 اصلاح زمان: زمان شروع کندل + ۵ دقیقه = زمان بسته شدن کندل
+    dt_raw = current_m5["datetime"]
+    if isinstance(dt_raw, str):
+        dt_obj = datetime.fromisoformat(dt_raw.replace(" ", "T"))
+    else:
+        dt_obj = dt_raw
+    
+    if dt_obj.tzinfo is None:
+        dt_obj = dt_obj.replace(tzinfo=timezone.utc)
+        
+    closed_time = dt_obj + timedelta(minutes=5)
+    dt_str = closed_time.isoformat()
 
     # ══════════════════════════════════════════
     #  فیلتر ۱: تعطیلی و بازگشایی بازار
@@ -157,7 +157,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         "rsi": round(rsi_, 1),
         "adx": round(adx_, 1),
         "atr": round(atr_, 2),
-        "time": dt_str,
+        "time": dt_str, # زمان اصلاح شده
     }
 
     # ══════════════════════════════════════════
