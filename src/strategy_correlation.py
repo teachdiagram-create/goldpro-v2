@@ -61,27 +61,60 @@ def check_news_blackout(dt_str: str) -> tuple[bool, str]:
         return False, "OK"
 
 
+from datetime import datetime, timezone
+
 def check_trading_hours(dt_str: str) -> tuple[bool, str]:
     """
-    فیلتر ساعت: فقط لندن + نیویورک.
-    - لندن: 08:00 - 11:00 UTC
-    - نیویورک: 13:00 - 16:00 UTC
+    فیلتر ساعت: لندن + نیویورک با در نظر گرفتن تغییرات DST.
+    
+    - لندن (GMT): 08:00 - 16:00 UTC در زمستان، 07:00 - 16:00 UTC در تابستان
+    - نیویورک (EST): 13:00 - 21:00 UTC در زمستان، 12:00 - 21:00 UTC در تابستان
     """
     try:
         dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
+        
         h = dt.hour
+        month = dt.month
+        day = dt.day
         
-        london = 8 <= h < 11
-        ny = 13 <= h < 16
-        overlap = 13 <= h < 16  # همپوشانی
+        # ─── تشخیص DST اروپا ───
+        # اروپا: آخرین یکشنبه مارس تا آخرین یکشنبه اکتبر
+        # ساده‌سازی: مارس (بعد از ۲۰) تا اکتبر (قبل از ۲۵) = تابستان
+        europe_summer = (month > 3 and month < 10) or \
+                        (month == 3 and day >= 20) or \
+                        (month == 10 and day < 25)
         
-        if london or ny:
-            return True, f"Trading hour (UTC {h:02d})"
+        london_start = 7 if europe_summer else 8
+        london_end = 16
+        
+        # ─── تشخیص DST آمریکا ───
+        # آمریکا: دومین یکشنبه مارس تا اولین یکشنبه نوامبر
+        # ساده‌سازی: مارس (بعد از ۸) تا نوامبر (قبل از ۱) = تابستان
+        us_summer = (month > 3 and month < 11) or \
+                    (month == 3 and day >= 8) or \
+                    (month == 11 and day < 1)
+        
+        ny_start = 12 if us_summer else 13
+        ny_end = 21
+        
+        # ─── چک بازه‌ها ───
+        in_london = london_start <= h < london_end
+        in_ny = ny_start <= h < ny_end
+        in_overlap = in_london and in_ny
+        
+        if in_overlap:
+            return True, f"London+NY overlap (UTC {h:02d})"
+        if in_london:
+            return True, f"London session (UTC {h:02d})"
+        if in_ny:
+            return True, f"New York session (UTC {h:02d})"
+        
         return False, f"Outside trading hours (UTC {h:02d})"
+    
     except Exception:
-        return False, "Invalid time"
+        return False, "Invalid time""
 
 
 def detect_trend_m15(df_m15) -> str:
