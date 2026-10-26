@@ -48,7 +48,7 @@ def check_trade_result(trade: dict, df) -> dict:
                     "closed_at": datetime.utcnow().isoformat(),
                 }
             if low <= sl:
-                pnl = sl - entry  # منفی = باخت ✅ اصلاح شد
+                pnl = sl - entry  # منفی = باخت
                 return {
                     **trade,
                     "result": "LOSS",
@@ -71,7 +71,7 @@ def check_trade_result(trade: dict, df) -> dict:
                     "closed_at": datetime.utcnow().isoformat(),
                 }
             if high >= sl:
-                pnl = entry - sl  # منفی = باخت ✅ اصلاح شد
+                pnl = entry - sl  # منفی = باخت
                 return {
                     **trade,
                     "result": "LOSS",
@@ -82,6 +82,28 @@ def check_trade_result(trade: dict, df) -> dict:
                 }
 
     return trade
+
+
+def _find_df(dataframes: dict, symbol: str, timeframe: str):
+    """
+    دیتافریم رو با هر ساختار کلیدی که پیدا شد برمی‌گردونه.
+    هم 'XAU/USD:5min' رو قبول می‌کنه، هم '5min' رو.
+    """
+    # ۱. اول کلید جدید (symbol:tf)
+    key_new = f"{symbol}:{timeframe}"
+    if key_new in dataframes:
+        return dataframes[key_new]
+
+    # ۲. بعد کلید قدیمی (فقط tf)
+    if timeframe in dataframes:
+        return dataframes[timeframe]
+
+    # ۳. هر کلیدی که به tf ختم بشه
+    for k, v in dataframes.items():
+        if k.endswith(f":{timeframe}") or k == timeframe:
+            return v
+
+    return None
 
 
 def update_open_trades(state: dict, dataframes: dict) -> tuple:
@@ -101,9 +123,13 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
             continue
 
         tf = trade.get("timeframe", "5min")
-        df = dataframes.get(tf)
+        symbol = trade.get("symbol", "XAU/USD")
+
+        # 🎯 استفاده از تابع کمکی جدید
+        df = _find_df(dataframes, symbol, tf)
 
         if df is None or len(df) == 0:
+            print(f"  ⚠️ No df for {symbol} {tf} (keys: {list(dataframes.keys())})")
             new_history.append(trade)
             continue
 
@@ -112,7 +138,7 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
         if updated_trade.get("result") and not trade.get("result"):
             updated_count += 1
             emoji = "✅" if updated_trade["result"] == "WIN" else "❌"
-            print(f"  {emoji} Trade closed: {tf} {trade['side']} "
+            print(f"  {emoji} Trade closed: {symbol} {tf} {trade['side']} "
                   f"→ {updated_trade['result']} "
                   f"({updated_trade['pnl']:+.2f})")
 
