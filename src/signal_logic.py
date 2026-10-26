@@ -5,7 +5,13 @@ Signal Logic - Interface between strategies and infrastructure.
 1. RANGE: RSI Double Top/Bottom
 2. TREND: EMA Cross + MACD
 3. CORRELATION: DXY + M15 trend + M5 trigger
+
+فیلترها:
+- تعطیلی و بازگشایی بازار (برای جلوگیری از سیگنال‌های نویز)
+- فیلتر ساعت و خبر برای استراتژی Correlation
 """
+from datetime import datetime, timezone
+
 from src.config import compute_sl_tp, SL_CORR_MULT, TP_CORR_MULT, MAX_SL_USD
 from src.strategy import (
     detect_double_top_sell,
@@ -19,6 +25,38 @@ from src.strategy_correlation import (
     detect_trend_m15,
     detect_trigger_m5,
 )
+
+
+def _is_market_closed_or_opening(dt_str: str) -> bool:
+    """
+    چک می‌کنه بازار تعطیله یا تو ساعات پرنوسان بازگشاییه.
+    - شنبه: کلاً تعطیل
+    - یکشنبه قبل از ۲۳ UTC: بازگشایی پرنوسان
+    - جمعه بعد از ۲۱ UTC: بسته شدن
+    """
+    try:
+        dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        
+        weekday = dt.weekday()  # 0=Monday, 5=Saturday, 6=Sunday
+        hour = dt.hour
+        
+        # ۱. کل شنبه (تعطیل کامل)
+        if weekday == 5:
+            return True
+            
+        # ۲. یکشنبه قبل از ساعت ۲۳ (بازگشایی با نویز و اسپرد بالا)
+        if weekday == 6 and hour < 23:
+            return True
+            
+        # ۳. جمعه بعد از ۲۱ (بسته شدن هفته)
+        if weekday == 4 and hour >= 21:
+            return True
+            
+        return False
+    except Exception:
+        return False
 
 
 def _compute_quality(adx_val: float, atr_val: float,
@@ -95,12 +133,6 @@ def _build_reason(setup: dict, side: str, strategy: str) -> str:
 def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     """
     ارزیابی سیگنال با ۳ استراتژی.
-    
-    Args:
-        df_m5: DataFrame طلا در M5
-        df_m15: DataFrame طلا در M15
-        df_dxy_m5: DataFrame دلار در M5 (اختیاری)
-        df_dxy_m15: DataFrame دلار در M15 (اختیاری)
     """
     # ─── آماده‌سازی M5 ───
     closed_m5 = df_m5.iloc[:-1]
@@ -113,6 +145,13 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     rsi_ = float(current_m5["rsi"])
     dt_str = str(current_m5["datetime"])
 
+    # ══════════════════════════════════════════
+    #  فیلتر ۱: تعطیلی و بازگشایی بازار
+    # ══════════════════════════════════════════
+    if _is_market_closed_or_opening(dt_str):
+        print(f"🚫 Market closed or opening (high spread) - {dt_str}")
+        return None
+
     base = {
         "timeframe": "5min",
         "rsi": round(rsi_, 1),
@@ -122,27 +161,20 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     }
 
     # ══════════════════════════════════════════
-    #  1) CORRELATION STRATEGY (جدید)
+    #  استراتژی ۱: CORRELATION
     # ══════════════════════════════════════════
     if df_dxy_m5 is not None and len(df_dxy_m5) > 20 and df_m15 is not None:
-        # فیلتر ساعت
         hour_ok, hour_reason = check_trading_hours(dt_str)
-        # فیلتر خبر
         news_blocked, news_reason = check_news_blackout(dt_str)
         
         if hour_ok and not news_blocked:
-            # تشخیص روند در M15
             trend = detect_trend_m15(df_m15.iloc[:-1])
             
             if trend in ("BUY", "SELL"):
-                # همبستگی
                 corr_ok, corr_val = check_correlation(df_m5, df_dxy_m5)
-                
-                # تریگر M5
                 trigger_ok = detect_trigger_m5(closed_m5, trend)
                 
                 if corr_ok and trigger_ok:
-                    # SL/TP مخصوص این استراتژی
                     sl_dist = max(SL_CORR_MULT * atr_, 3.0)
                     tp_dist = max(TP_CORR_MULT * atr_, 4.5)
                     sl_dist = min(sl_dist, MAX_SL_USD)
@@ -173,7 +205,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                     }
 
     # ══════════════════════════════════════════
-    #  2) RANGE STRATEGY (قبلی)
+    #  استراتژی ۲: RANGE
     # ══════════════════════════════════════════
     sell_setup = detect_double_top_sell(rsi_series_m5)
     if sell_setup:
@@ -202,7 +234,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
             }
 
     # ══════════════════════════════════════════
-    #  3) TREND STRATEGY (قبلی)
+    #  استراتژی ۳: TREND
     # ══════════════════════════════════════════
     trend_signal = detect_trend_signal(closed_m5)
     if trend_signal:
