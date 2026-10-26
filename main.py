@@ -1,13 +1,12 @@
 from datetime import datetime
-from src.config import TIMEFRAMES, USE_GIST, ALLOWED_GRADES, MAX_OPEN_TRADES
-from src.data_fetcher import fetch_ohlc, fetch_dxy_stooq
+from src.config import TIMEFRAMES, USE_GIST, ALLOWED_GRADES, MAX_OPEN_TRADES, DXY_SYMBOL
+from src.data_fetcher import fetch_ohlc, fetch_dxy_yfinance
 from src.indicators import add_indicators
 from src.signal_logic import evaluate_signal
 from src.telegram_bot import send_telegram, format_message
 from src.notifier import send_signal_ntfy, send_win_ntfy
 from src.sms_sender import send_signal_sms, send_win_sms
 from src.risk_manager import has_open_trade
-from src.data_fetcher import fetch_dxy_yfinance
 
 
 if USE_GIST:
@@ -29,7 +28,7 @@ else:
 
 
 def process_timeframes(state, dataframes):
-    print(f"\n🔍 Analyzing Gold M5 & M15 + DXY (Stooq)...")
+    print(f"\n🔍 Analyzing Gold M5 & M15 + DXY (yfinance)...")
 
     try:
         # 1. دیتای طلا (M5 و M15)
@@ -39,6 +38,7 @@ def process_timeframes(state, dataframes):
         df_m15 = fetch_ohlc("15min", symbol="XAU/USD")
         df_m15 = add_indicators(df_m15)
         
+        # ذخیره تو دیکشنری برای استفاده تو trade_tracker
         dataframes["XAU/USD:5min"] = df_m5
         dataframes["XAU/USD:15min"] = df_m15
 
@@ -53,13 +53,13 @@ def process_timeframes(state, dataframes):
         print(f"❌ Gold fetch failed - {e}")
         return state, False
 
-    # 2. دیتای دلار (DXY) برای استراتژی همبستگی
+    # 2. دیتای دلار (DXY) فقط از yfinance
     df_dxy = None
     try:
         df_dxy = fetch_dxy_yfinance("5min")
         if df_dxy is not None and len(df_dxy) > 0:
             df_dxy = add_indicators(df_dxy)
-            print(f"✅ DXY (Stooq) fetched: {len(df_dxy)} candles")
+            print(f"✅ DXY (yfinance) fetched: {len(df_dxy)} candles")
         else:
             print("⚠️ DXY fetch failed (empty) - Correlation disabled")
             df_dxy = None
@@ -67,7 +67,7 @@ def process_timeframes(state, dataframes):
         print(f"⚠️ DXY fetch failed - Correlation disabled: {e}")
         df_dxy = None
 
-    # 3. ارزیابی سیگنال (کل دیتا یکجا داده می‌شه)
+    # 3. ارزیابی سیگنال
     signal = evaluate_signal(df_m5, df_m15, df_dxy, df_dxy)
 
     if signal is None:
@@ -79,6 +79,7 @@ def process_timeframes(state, dataframes):
     strategy = signal["strategy"]
     
     print(f"✅ SIGNAL: {strategy} {signal['side']} @ {signal['entry']} | Grade={grade} Score={score}")
+    print(f"   ⏰ Time: {signal['time']} UTC")
 
     # ─── فیلتر ۱: Quality ───
     if grade not in ALLOWED_GRADES:
@@ -151,6 +152,7 @@ def main():
                 state_changed = True
                 print(f"✅ {closed_count} trade(s) closed")
 
+                # ارسال نوتیفیکیشن برد
                 for trade in state.get("history", []):
                     if (trade.get("result") == "WIN"
                             and trade.get("closed_at")
