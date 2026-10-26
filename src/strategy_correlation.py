@@ -114,7 +114,7 @@ def check_trading_hours(dt_str: str) -> tuple[bool, str]:
         return False, f"Outside trading hours (UTC {h:02d})"
     
     except Exception:
-        return False, "Invalid time""
+        return False, "Invalid time"
 
 
 def detect_trend_m15(df_m15) -> str:
