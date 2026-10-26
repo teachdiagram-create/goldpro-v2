@@ -39,9 +39,6 @@ def check_correlation(df_gold, df_dxy, window: int = 20) -> tuple[bool, float]:
 def check_news_blackout(dt_str: str) -> tuple[bool, str]:
     """
     فیلتر خبر: ۳۰ دقیقه قبل و بعد از اخبار مهم (ساختار ساده).
-    فعلاً اخبار رو هاردکد می‌کنیم. بعداً می‌تونی از API بگیر.
-    
-    Returns: (is_blocked, reason)
     """
     try:
         dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
@@ -49,8 +46,6 @@ def check_news_blackout(dt_str: str) -> tuple[bool, str]:
             dt = dt.replace(tzinfo=timezone.utc)
         
         # اخبار مهم اقتصادی (UTC) - برای تست
-        # معمولاً: NFP (جمعه اول ماه), CPI (وسط ماه), FOMC (۸ بار در سال)
-        # اینجا یه بازه‌ی کلی گذاشتیم: ۱۲:۳۰ تا ۱۳:۳۰ UTC (NFP/CPI)
         if dt.hour == 12 and 30 <= dt.minute <= 59:
             return True, "News blackout (12:30-13:00 UTC)"
         if dt.hour == 13 and dt.minute <= 30:
@@ -61,14 +56,9 @@ def check_news_blackout(dt_str: str) -> tuple[bool, str]:
         return False, "OK"
 
 
-from datetime import datetime, timezone
-
 def check_trading_hours(dt_str: str) -> tuple[bool, str]:
     """
     فیلتر ساعت: لندن + نیویورک با در نظر گرفتن تغییرات DST.
-    
-    - لندن (GMT): 08:00 - 16:00 UTC در زمستان، 07:00 - 16:00 UTC در تابستان
-    - نیویورک (EST): 13:00 - 21:00 UTC در زمستان، 12:00 - 21:00 UTC در تابستان
     """
     try:
         dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
@@ -80,8 +70,6 @@ def check_trading_hours(dt_str: str) -> tuple[bool, str]:
         day = dt.day
         
         # ─── تشخیص DST اروپا ───
-        # اروپا: آخرین یکشنبه مارس تا آخرین یکشنبه اکتبر
-        # ساده‌سازی: مارس (بعد از ۲۰) تا اکتبر (قبل از ۲۵) = تابستان
         europe_summer = (month > 3 and month < 10) or \
                         (month == 3 and day >= 20) or \
                         (month == 10 and day < 25)
@@ -90,8 +78,6 @@ def check_trading_hours(dt_str: str) -> tuple[bool, str]:
         london_end = 16
         
         # ─── تشخیص DST آمریکا ───
-        # آمریکا: دومین یکشنبه مارس تا اولین یکشنبه نوامبر
-        # ساده‌سازی: مارس (بعد از ۸) تا نوامبر (قبل از ۱) = تابستان
         us_summer = (month > 3 and month < 11) or \
                     (month == 3 and day >= 8) or \
                     (month == 11 and day < 1)
@@ -144,8 +130,6 @@ def detect_trend_m15(df_m15) -> str:
 def detect_trigger_m5(df_m5, trend: str) -> bool:
     """
     تریگر ورود در M5 در جهت روند M15.
-    BUY: MACD > signal + close > EMA20
-    SELL: MACD < signal + close < EMA20
     """
     if len(df_m5) < 5:
         return False
