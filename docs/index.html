@@ -131,6 +131,30 @@
   .stat-value.pnl-neg { color: #f87171; }
   .stat-value.small { font-size: 1.3rem; }
   .stat-label { font-size: 0.8rem; color: #8892b0; }
+  
+  /* آمار مجزای استراتژی‌ها */
+  .strategy-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  .strat-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 15px;
+    text-align: center;
+  }
+  .strat-card.range { border-top: 4px solid #a78bfa; }
+  .strat-card.trend { border-top: 4px solid #38bdf8; }
+  .strat-card.correlation { border-top: 4px solid #fbbf24; }
+  .strat-title {
+    font-size: 0.9rem; font-weight: 800; margin-bottom: 8px;
+  }
+  .strat-wr { font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; }
+  .strat-detail { font-size: 0.75rem; color: #8892b0; }
+  
   .card {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 215, 0, 0.15);
@@ -201,6 +225,10 @@
   .badge.trend {
     background: rgba(56, 189, 248, 0.15); color: #38bdf8;
     border: 1px solid rgba(56, 189, 248, 0.3);
+  }
+  .badge.correlation {
+    background: rgba(251, 191, 36, 0.15); color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.3);
   }
   .badge.grade-A { background: rgba(74, 222, 128, 0.2); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
   .badge.grade-B { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
@@ -448,6 +476,9 @@
     </div>
   </div>
 
+  <!-- آمار مجزای استراتژی‌ها -->
+  <div class="strategy-stats" id="strategy-stats"></div>
+
   <div class="stats">
     <div class="stat">
       <div class="stat-value" id="total">-</div>
@@ -598,10 +629,8 @@ function playSignalAlarm() {
       beeps.forEach(beep => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = beep.freq;
-        osc.type = 'sine';
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = beep.freq; osc.type = 'sine';
         gain.gain.setValueAtTime(0, now + beep.start);
         gain.gain.linearRampToValueAtTime(1.0, now + beep.start + 0.02);
         gain.gain.linearRampToValueAtTime(0, now + beep.start + beep.duration);
@@ -621,8 +650,7 @@ function playWinAlarm() {
       { f: 783.99, t: 0.3 }, { f: 1046.5, t: 0.45 },
     ];
     notes.forEach(n => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const osc = ctx.createOscillator(); const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
       osc.frequency.value = n.f; osc.type = 'triangle';
       gain.gain.setValueAtTime(0, now + n.t);
@@ -728,6 +756,7 @@ function checkForNewSignals(history) {
 }
 
 function renderStats(history) {
+  // --- ۱. آمار کلی ---
   const total = history.length;
   const wins = history.filter(t => t.result === "WIN").length;
   const losses = history.filter(t => t.result === "LOSS").length;
@@ -756,6 +785,45 @@ function renderStats(history) {
   if (history[0]) {
     document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
   }
+
+  // --- ۲. آمار مجزای استراتژی‌ها ---
+  const strategies = ["RANGE", "TREND", "CORRELATION"];
+  const strategyNames = { RANGE: "🔄 Range (RSI)", TREND: "📈 Trend (EMA)", CORRELATION: "📊 Correlation" };
+  const strategyClasses = { RANGE: "range", TREND: "trend", CORRELATION: "correlation" };
+  
+  let stratHtml = "";
+  
+  strategies.forEach(strat => {
+    const stratTrades = history.filter(t => (t.strategy || "RANGE") === strat);
+    if (stratTrades.length === 0) return;
+    
+    const sWins = stratTrades.filter(t => t.result === "WIN").length;
+    const sLosses = stratTrades.filter(t => t.result === "LOSS").length;
+    const sOpens = stratTrades.filter(t => !t.result).length;
+    const sClosed = sWins + sLosses;
+    
+    const sWr = sClosed > 0 ? round2(sWins / sClosed * 100) : 0;
+    const sPnl = round2(stratTrades.reduce((sum, t) => sum + (t.pnl || 0), 0));
+    
+    const wrColor = sWr >= 50 ? "color:#4ade80;" : "color:#f87171;";
+    const pnlColor = sPnl >= 0 ? "color:#4ade80;" : "color:#f87171;";
+    
+    stratHtml += `
+      <div class="strat-card ${strategyClasses[strat]}">
+        <div class="strat-title">${strategyNames[strat]}</div>
+        <div class="strat-wr" style="${wrColor}">${sWr}%</div>
+        <div class="strat-detail">
+          ${sWins}W / ${sLosses}L | در جریان: ${sOpens}<br>
+          <span style="${pnlColor}">PnL: ${sPnl >= 0 ? '+' : ''}${sPnl}</span>
+        </div>
+      </div>
+    `;
+  });
+  
+  const stratContainer = document.getElementById("strategy-stats");
+  if (stratContainer) {
+    stratContainer.innerHTML = stratHtml;
+  }
 }
 
 function renderTable(history) {
@@ -772,9 +840,9 @@ function renderTable(history) {
 
   history.forEach((t, i) => {
     const strategy = t.strategy || "RANGE";
-    const strategyHtml = strategy === "TREND" 
-      ? '<span class="badge trend">📈 Trend</span>' 
-      : '<span class="badge range">🔄 Range</span>';
+    let strategyHtml = '<span class="badge range">🔄 Range</span>';
+    if (strategy === "TREND") strategyHtml = '<span class="badge trend">📈 Trend</span>';
+    if (strategy === "CORRELATION") strategyHtml = '<span class="badge correlation">📊 Correlation</span>';
 
     let gradeHtml = "—";
     if (t.quality && t.quality.grade) {
@@ -890,7 +958,9 @@ function showDetails(index) {
   if (!t) return;
 
   const strategy = t.strategy || "RANGE";
-  const strategyLabel = strategy === "TREND" ? "📈 Trend (EMA+MACD)" : "🔄 Range (RSI)";
+  let strategyLabel = "🔄 Range (RSI)";
+  if (strategy === "TREND") strategyLabel = "📈 Trend (EMA+MACD)";
+  if (strategy === "CORRELATION") strategyLabel = "📊 Correlation (DXY)";
   
   let qualityHtml = "";
   if (t.quality) {
@@ -937,7 +1007,7 @@ function showDetails(index) {
       <div class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}" style="font-size: 1.2rem; margin-bottom: 8px;">
         ${t.side} — ${t.timeframe || ''}
       </div>
-      <div class="badge ${strategy === 'TREND' ? 'trend' : 'range'}" style="margin-bottom: 12px;">
+      <div class="badge ${strategy.toLowerCase()}" style="margin-bottom: 12px;">
         ${strategyLabel}
       </div>
       <h3>${t.result ? getResultBadge(t.result) : '⏳ در جریان'}</h3>
