@@ -6,7 +6,9 @@ from src.signal_logic import evaluate_signal
 from src.telegram_bot import send_telegram, format_message
 from src.notifier import send_signal_ntfy, send_win_ntfy
 from src.sms_sender import send_signal_sms, send_win_sms
-from src.risk_manager import has_open_trade
+
+# تغییر جدید: استفاده از تابع اختصاصی هر استراتژی
+from src.risk_manager import can_open_trade
 
 
 if USE_GIST:
@@ -86,9 +88,10 @@ def process_timeframes(state, dataframes):
         print(f"🚫 Grade {grade} not in {ALLOWED_GRADES}, skipped")
         return state, False
 
-    # ─── فیلتر ۲: ترید باز ───
-    if has_open_trade(state):
-        print(f"🚫 Open trade exists, skipped")
+    # ─── فیلتر ۲: ترید باز (به ازای هر استراتژی) ───
+    allowed, reason = can_open_trade(state, strategy, max_open=MAX_OPEN_TRADES)
+    if not allowed:
+        print(f"🚫 {reason} - skipped")
         return state, False
 
     # ─── فیلتر ۳: Cooldown ───
@@ -123,13 +126,22 @@ def process_timeframes(state, dataframes):
 def main():
     print("▶ GoldPro V2 started")
     print(f"   Allowed grades: {ALLOWED_GRADES}")
-    print(f"   Max open trades: {MAX_OPEN_TRADES}")
+    print(f"   Max open trades per strategy: {MAX_OPEN_TRADES}")
 
     state = load_state()
     print(f"📦 State keys: {list(state.keys())}")
 
-    open_count = sum(1 for t in state.get("history", []) if t.get("result") is None)
-    print(f"📊 Open trades: {open_count}")
+    # آمار تریدهای باز به تفکیک استراتژی
+    open_by_strat = {}
+    for t in state.get("history", []):
+        if t.get("result") is None:
+            strat = t.get("strategy", "UNKNOWN")
+            open_by_strat[strat] = open_by_strat.get(strat, 0) + 1
+    
+    if open_by_strat:
+        print(f"📊 Open trades by strategy: {open_by_strat}")
+    else:
+        print(f"📊 Open trades: 0")
 
     state_changed = False
     dataframes = {}
