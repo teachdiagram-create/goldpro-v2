@@ -45,15 +45,15 @@ RSI_SELL_MAX = 50
 #  SL/TP - تنظیمات اصلاح‌شده برای تایم‌فریم ۵ دقیقه
 # ==============================================================
 SL_ATR_MULT = 2.5
-TP_ATR_MULT = 2.5   # ← از 3.5 به 2.5 کم شد تا TP قابل دسترس‌تر باشه
+TP_ATR_MULT = 2.5   # ← TP قابل دسترس‌تر
 MIN_SL_USD = 3.0
 MIN_TP_USD = 4.5
 
 # ⚠️ سقف مطلق (برای جلوگیری از TP/SL های خیلی دور)
 MAX_SL_USD = 12.0
-MAX_TP_USD = 15.0   # ← سقف TP برای استراتژی‌های عادی
+MAX_TP_USD = 15.0
 
-# استراتژی Correlation
+# استراتژی Correlation (همبستگی)
 SL_CORR_MULT = 1.0
 TP_CORR_MULT = 1.5
 
@@ -67,6 +67,9 @@ ALLOWED_GRADES = ["A", "B"]
 # ==============================================================
 MAX_OPEN_TRADES = 1
 SIGNAL_COOLDOWN_MIN = 60
+
+# ==== Trade Tracking ====
+TRADE_CHECK_MAX_BARS = 200   # حداکثر کندلی که برای چک کردن SL/TP بررسی می‌شه
 
 # ==== Ntfy ====
 NTFY_TOPIC = "goldpro_roohollah_2026"
