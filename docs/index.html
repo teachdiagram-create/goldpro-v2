@@ -131,6 +131,8 @@
   .stat-value.pnl-neg { color: #f87171; }
   .stat-value.small { font-size: 1.3rem; }
   .stat-label { font-size: 0.8rem; color: #8892b0; }
+.strat-card.ichimoku { border-top: 4px solid #f43f5e; }
+.badge.ichimoku { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); }
   
   /* آمار مجزای استراتژی‌ها */
   .strategy-stats {
@@ -146,6 +148,8 @@
     padding: 15px;
     text-align: center;
   }
+.strat-card.ichimoku { border-top: 4px solid #f43f5e; }
+.badge.ichimoku { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); }
   .strat-card.range { border-top: 4px solid #a78bfa; }
   .strat-card.trend { border-top: 4px solid #38bdf8; }
   .strat-card.correlation { border-top: 4px solid #fbbf24; }
@@ -787,9 +791,19 @@ function renderStats(history) {
   }
 
   // --- ۲. آمار مجزای استراتژی‌ها ---
-  const strategies = ["RANGE", "TREND", "CORRELATION"];
-  const strategyNames = { RANGE: "🔄 Range (RSI)", TREND: "📈 Trend (EMA)", CORRELATION: "📊 Correlation" };
-  const strategyClasses = { RANGE: "range", TREND: "trend", CORRELATION: "correlation" };
+  const strategies = ["RANGE", "TREND", "CORRELATION", "ICHIMOKU"];
+const strategyNames = { 
+  RANGE: "🔄 Range (RSI)", 
+  TREND: "📈 Trend (EMA)", 
+  CORRELATION: "📊 Correlation", 
+  ICHIMOKU: "☁️ Ichimoku" 
+};
+const strategyClasses = { 
+  RANGE: "range", 
+  TREND: "trend", 
+  CORRELATION: "correlation", 
+  ICHIMOKU: "ichimoku" 
+};
   
   let stratHtml = "";
   
@@ -842,7 +856,9 @@ function renderTable(history) {
     const strategy = t.strategy || "RANGE";
     let strategyHtml = '<span class="badge range">🔄 Range</span>';
     if (strategy === "TREND") strategyHtml = '<span class="badge trend">📈 Trend</span>';
-    if (strategy === "CORRELATION") strategyHtml = '<span class="badge correlation">📊 Correlation</span>';
+    if (strategy === "CORRELATION")
+ strategyHtml = '<span class="badge correlation">📊 Correlation</span>';
+if (strat === "ICHIMOKU") stratLabel = '☁️ Ichimoku';
 
     let gradeHtml = "—";
     if (t.quality && t.quality.grade) {
