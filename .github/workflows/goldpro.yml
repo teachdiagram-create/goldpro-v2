@@ -2,7 +2,7 @@ name: GoldPro V2 Signal Bot
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '3/5 * * * *'
   workflow_dispatch:
 
 jobs:
