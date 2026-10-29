@@ -32,3 +32,4 @@ jobs:
           SMSIR_LINE_NUMBER: ${{ secrets.SMSIR_LINE_NUMBER }}
           SMSIR_PHONE: ${{ secrets.SMSIR_PHONE }}
         run: python main.py
+#--
