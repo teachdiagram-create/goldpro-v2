@@ -1,14 +1,14 @@
 """
 Trade Tracker — پیگیری نتایج معاملات باز
-بعد از هر سیگنال، چک می‌کنه کی TP یا SL می‌خوره
 """
 from datetime import datetime
+import pandas as pd
 
 
 def check_trade_result(trade: dict, df) -> dict:
     """
-    یه معامله باز رو با داده جدید چک می‌کنه
-    اگه TP یا SL خورده باشه، نتیجه رو برمی‌گردونه
+    یه معامله باز رو با داده جدید چک می‌کنه.
+    اگه TP یا SL خورده باشه، نتیجه رو برمی‌گردونه.
     """
     if trade.get("result"):
         return trade
@@ -22,11 +22,25 @@ def check_trade_result(trade: dict, df) -> dict:
     if not all([entry, sl, tp, sent_at]):
         return trade
 
-    # فقط کندل‌هایی که بعد از سیگنال اومدن
-    signal_time = sent_at.replace("T", " ").split(".")[0]
+    try:
+        # ۱. زمان سیگنال رو به datetime تبدیل می‌کنیم
+        signal_dt = datetime.fromisoformat(sent_at)
+        if signal_dt.tzinfo is None:
+            signal_dt = signal_dt.replace(tzinfo=pd.Timestamp.now().tz)
+    except Exception:
+        return trade
+
+    # ۲. آماده‌سازی دیتافریم و چک کردن کندل‌های جدید
     df = df.copy()
-    df["datetime_str"] = df["datetime"].astype(str)
-    new_candles = df[df["datetime_str"] > signal_time]
+    if not pd.api.types.is_datetime64_any_dtype(df["datetime"]):
+        df["datetime"] = pd.to_datetime(df["datetime"])
+    
+    # اگه تایم‌زون نداره، اضافه می‌کنیم که با سیگنال هماهنگ شه
+    if df["datetime"].dt.tz is None:
+        df["datetime"] = df["datetime"].dt.tz_localize(signal_dt.tzinfo)
+        
+    # فقط کندل‌هایی که بعد از سیگنال اومدن
+    new_candles = df[df["datetime"] > signal_dt]
 
     if len(new_candles) == 0:
         return trade
@@ -36,80 +50,36 @@ def check_trade_result(trade: dict, df) -> dict:
         low = float(candle["low"])
 
         if side == "BUY":
-            # BUY: TP بالا، SL پایین
             if high >= tp:
-                pnl = tp - entry  # مثبت = برد
-                return {
-                    **trade,
-                    "result": "WIN",
-                    "exit_price": round(tp, 2),
-                    "exit_time": str(candle["datetime"]),
-                    "pnl": round(pnl, 2),
-                    "closed_at": datetime.utcnow().isoformat(),
-                }
+                pnl = tp - entry
+                return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": str(candle["datetime"]), "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
             if low <= sl:
-                pnl = sl - entry  # منفی = باخت
-                return {
-                    **trade,
-                    "result": "LOSS",
-                    "exit_price": round(sl, 2),
-                    "exit_time": str(candle["datetime"]),
-                    "pnl": round(pnl, 2),
-                    "closed_at": datetime.utcnow().isoformat(),
-                }
-
+                pnl = sl - entry
+                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": str(candle["datetime"]), "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
         else:  # SELL
-            # SELL: TP پایین، SL بالا
             if low <= tp:
-                pnl = entry - tp  # مثبت = برد
-                return {
-                    **trade,
-                    "result": "WIN",
-                    "exit_price": round(tp, 2),
-                    "exit_time": str(candle["datetime"]),
-                    "pnl": round(pnl, 2),
-                    "closed_at": datetime.utcnow().isoformat(),
-                }
+                pnl = entry - tp
+                return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": str(candle["datetime"]), "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
             if high >= sl:
-                pnl = entry - sl  # منفی = باخت
-                return {
-                    **trade,
-                    "result": "LOSS",
-                    "exit_price": round(sl, 2),
-                    "exit_time": str(candle["datetime"]),
-                    "pnl": round(pnl, 2),
-                    "closed_at": datetime.utcnow().isoformat(),
-                }
+                pnl = entry - sl
+                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": str(candle["datetime"]), "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
 
     return trade
 
 
 def _find_df(dataframes: dict, symbol: str, timeframe: str):
-    """
-    دیتافریم رو با هر ساختار کلیدی که پیدا شد برمی‌گردونه.
-    هم 'XAU/USD:5min' رو قبول می‌کنه، هم '5min' رو.
-    """
-    # ۱. اول کلید جدید (symbol:tf)
     key_new = f"{symbol}:{timeframe}"
     if key_new in dataframes:
         return dataframes[key_new]
-
-    # ۲. بعد کلید قدیمی (فقط tf)
     if timeframe in dataframes:
         return dataframes[timeframe]
-
-    # ۳. هر کلیدی که به tf ختم بشه
     for k, v in dataframes.items():
         if k.endswith(f":{timeframe}") or k == timeframe:
             return v
-
     return None
 
 
 def update_open_trades(state: dict, dataframes: dict) -> tuple:
-    """
-    همه معاملات باز رو چک می‌کنه و آپدیت می‌کنه
-    """
     history = state.get("history", [])
     if not history:
         return state, 0
@@ -124,12 +94,10 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
 
         tf = trade.get("timeframe", "5min")
         symbol = trade.get("symbol", "XAU/USD")
-
-        # 🎯 استفاده از تابع کمکی جدید
         df = _find_df(dataframes, symbol, tf)
 
         if df is None or len(df) == 0:
-            print(f"  ⚠️ No df for {symbol} {tf} (keys: {list(dataframes.keys())})")
+            print(f"  ⚠️ No df for {symbol} {tf} - keeping open")
             new_history.append(trade)
             continue
 
@@ -138,9 +106,7 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
         if updated_trade.get("result") and not trade.get("result"):
             updated_count += 1
             emoji = "✅" if updated_trade["result"] == "WIN" else "❌"
-            print(f"  {emoji} Trade closed: {symbol} {tf} {trade['side']} "
-                  f"→ {updated_trade['result']} "
-                  f"({updated_trade['pnl']:+.2f})")
+            print(f"  {emoji} Trade closed: {symbol} {tf} {trade['side']} -> {updated_trade['result']} ({updated_trade['pnl']:+.2f})")
 
         new_history.append(updated_trade)
 
@@ -149,7 +115,6 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
 
 
 def calculate_win_stats(history: list) -> dict:
-    """محاسبه آمار برد/باخت"""
     closed = [t for t in history if t.get("result")]
     wins = [t for t in closed if t["result"] == "WIN"]
     losses = [t for t in closed if t["result"] == "LOSS"]
