@@ -20,9 +20,12 @@ GH_PAT = os.getenv("GH_PAT", "").strip()
 USE_GIST = bool(GH_GIST_ID and GH_PAT)
 
 # ==== Market ====
+# ==== Market ====
 SYMBOL = "XAU/USD"
+DXY_SYMBOL = "DX-Y.NYB"  
 OUTPUT_SIZE = 200
 TIMEFRAMES = ["5min", "15min"]
+
 
 # ==== Indicators ====
 EMA_FAST = 20
