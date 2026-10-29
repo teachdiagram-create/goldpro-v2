@@ -1,16 +1,3 @@
-"""
-Signal Logic - Interface between strategies and infrastructure.
-
-استراتژی‌ها:
-1. RANGE: RSI Double Top/Bottom
-2. TREND: EMA Cross + MACD
-3. CORRELATION: DXY + M15 trend + M5 trigger
-
-فیلترها:
-- تعطیلی و بازگشایی بازار
-- فیلتر ساعت و خبر برای Correlation
-- اصلاح زمان سیگنال (Timestamp Fix) برای جلوگیری از Repainting
-"""
 from datetime import datetime, timezone, timedelta
 
 from src.config import compute_sl_tp, SL_CORR_MULT, TP_CORR_MULT, MAX_SL_USD
@@ -29,13 +16,12 @@ from src.strategy_correlation import (
 
 
 def _is_market_closed_or_opening(dt_str: str) -> bool:
-    """چک میکنه بازار تعطیله یا تو ساعات پرنوسان بازگشاییه."""
     try:
         dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
         
-        weekday = dt.weekday()  # 0=Monday, 5=Saturday, 6=Sunday
+        weekday = dt.weekday()
         hour = dt.hour
         
         if weekday == 5: return True
@@ -53,46 +39,27 @@ def _compute_quality(adx_val: float, atr_val: float,
     flags = []
     warnings = []
 
-    # ADX
-    if adx_val is None:
-        warnings.append("ADX نامشخص")
-    elif adx_val >= 50:
-        score += 30; flags.append("ADX قوی")
-    elif adx_val >= 35:
-        score += 20; flags.append("ADX خوب")
-    elif adx_val >= 25:
-        score += 10
-    elif adx_val >= 15:
-        score -= 5; warnings.append("ADX ضعیف")
-    else:
-        score -= 20; warnings.append("ADX خیلی ضعیف")
+    if adx_val is None: warnings.append("ADX نامشخص")
+    elif adx_val >= 50: score += 30; flags.append("ADX قوی")
+    elif adx_val >= 35: score += 20; flags.append("ADX خوب")
+    elif adx_val >= 25: score += 10
+    elif adx_val >= 15: score -= 5; warnings.append("ADX ضعیف")
+    else: score -= 20; warnings.append("ADX خیلی ضعیف")
 
-    # ATR
-    if atr_val is None:
-        warnings.append("ATR نامشخص")
-    elif atr_val < 0.5:
-        score -= 25; warnings.append("ATR خیلی کم")
-    elif atr_val < 1.0:
-        score -= 10; warnings.append("ATR کم")
-    elif atr_val <= 4.0:
-        score += 10; flags.append("ATR مناسب")
-    elif atr_val <= 6.0:
-        score -= 5; warnings.append("ATR بالا")
-    else:
-        score -= 15; warnings.append("ATR خیلی بالا")
+    if atr_val is None: warnings.append("ATR نامشخص")
+    elif atr_val < 0.5: score -= 25; warnings.append("ATR خیلی کم")
+    elif atr_val < 1.0: score -= 10; warnings.append("ATR کم")
+    elif atr_val <= 4.0: score += 10; flags.append("ATR مناسب")
+    elif atr_val <= 6.0: score -= 5; warnings.append("ATR بالا")
+    else: score -= 15; warnings.append("ATR خیلی بالا")
 
-    # RSI
     if rsi_val is not None:
         if strategy == "RANGE":
-            if side == "SELL" and rsi_val <= 65:
-                score += 10; flags.append("RSI تأیید می‌کند")
-            elif side == "BUY" and rsi_val >= 35:
-                score += 10; flags.append("RSI تأیید می‌کند")
+            if side == "SELL" and rsi_val <= 65: score += 10; flags.append("RSI تأیید می‌کند")
+            elif side == "BUY" and rsi_val >= 35: score += 10; flags.append("RSI تأیید می‌کند")
         elif strategy in ("TREND", "CORRELATION"):
-            if side == "BUY" and 40 <= rsi_val <= 70:
-                score += 10; flags.append("RSI در محدوده")
-            elif side == "SELL" and 30 <= rsi_val <= 60:
-                score += 10; flags.append("RSI در محدوده")
+            if side == "BUY" and 40 <= rsi_val <= 70: score += 10; flags.append("RSI در محدوده")
+            elif side == "SELL" and 30 <= rsi_val <= 60: score += 10; flags.append("RSI در محدوده")
 
     score = max(0, min(100, score))
     if score >= 80: grade = "A"
@@ -114,15 +81,12 @@ def _build_reason(setup: dict, side: str, strategy: str) -> str:
     elif strategy == "TREND":
         return f"EMA Cross + MACD"
     elif strategy == "CORRELATION":
+        # 🚨 این خط رو دقیقاً همین‌طور نگه دار
         return f"DXY corr + M15 trend {side} + M5 trigger"
     return f"{side} signal"
 
 
 def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
-    """
-    ارزیابی سیگنال با ۳ استراتژی.
-    """
-    # ─── آماده‌سازی M5 ───
     closed_m5 = df_m5.iloc[:-1]
     current_m5 = closed_m5.iloc[-1]
     rsi_series_m5 = closed_m5["rsi"]
@@ -132,7 +96,6 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     adx_ = float(current_m5["adx"])
     rsi_ = float(current_m5["rsi"])
     
-    # 🚨 اصلاح زمان: زمان شروع کندل + ۵ دقیقه = زمان بسته شدن کندل
     dt_raw = current_m5["datetime"]
     if isinstance(dt_raw, str):
         dt_obj = datetime.fromisoformat(dt_raw.replace(" ", "T"))
@@ -145,9 +108,6 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     closed_time = dt_obj + timedelta(minutes=5)
     dt_str = closed_time.isoformat()
 
-    # ══════════════════════════════════════════
-    #  فیلتر ۱: تعطیلی و بازگشایی بازار
-    # ══════════════════════════════════════════
     if _is_market_closed_or_opening(dt_str):
         print(f"🚫 Market closed or opening (high spread) - {dt_str}")
         return None
@@ -157,15 +117,13 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         "rsi": round(rsi_, 1),
         "adx": round(adx_, 1),
         "atr": round(atr_, 2),
-        "time": dt_str, # زمان اصلاح شده
+        "time": dt_str,
     }
 
-    # ══════════════════════════════════════════
-    #  استراتژی ۱: CORRELATION
-    # ══════════════════════════════════════════
+    # ─── استراتژی ۱: CORRELATION ───
     if df_dxy_m5 is not None and len(df_dxy_m5) > 20 and df_m15 is not None:
-        hour_ok, hour_reason = check_trading_hours(dt_str)
-        news_blocked, news_reason = check_news_blackout(dt_str)
+        hour_ok, _ = check_trading_hours(dt_str)
+        news_blocked, _ = check_news_blackout(dt_str)
         
         if hour_ok and not news_blocked:
             trend = detect_trend_m15(df_m15.iloc[:-1])
@@ -198,15 +156,13 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                         "sl_distance": round(sl_dist, 2),
                         "tp_distance": round(tp_dist, 2),
                         "rr": rr,
-                        "strategy": "CORRELATION",
+                        "strategy": "CORRELATION", # 🚨 این باید دقیقاً همین باشه
                         "quality": _compute_quality(adx_, atr_, rsi_, trend, "CORRELATION"),
                         "reason": f"DXY corr={corr_val} + M15 {trend} + M5 trigger",
                         "valid": True,
                     }
 
-    # ══════════════════════════════════════════
-    #  استراتژی ۲: RANGE
-    # ══════════════════════════════════════════
+    # ─── استراتژی ۲: RANGE ───
     sell_setup = detect_double_top_sell(rsi_series_m5)
     if sell_setup:
         sl, tp, sd, td, rr = compute_sl_tp("SELL", price, atr_)
@@ -233,9 +189,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                 "valid": True,
             }
 
-    # ══════════════════════════════════════════
-    #  استراتژی ۳: TREND
-    # ══════════════════════════════════════════
+    # ─── استراتژی ۳: TREND ───
     trend_signal = detect_trend_signal(closed_m5)
     if trend_signal:
         side = trend_signal["direction"]
