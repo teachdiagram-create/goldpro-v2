@@ -1,53 +1,37 @@
 from datetime import datetime
-from src.config import TIMEFRAMES, USE_GIST, ALLOWED_GRADES, MAX_OPEN_TRADES, DXY_SYMBOL
+from src.config import TIMEFRAMES, USE_GIST, ALLOWED_GRADES, MAX_OPEN_TRADES
 from src.data_fetcher import fetch_ohlc, fetch_dxy_yfinance
 from src.indicators import add_indicators
 from src.signal_logic import evaluate_signal
-from src.telegram_bot import send_telegram, format_message
-from src.notifier import send_signal_ntfy, send_win_ntfy
-from src.sms_sender import send_signal_sms, send_win_sms
 from src.telegram_bot import send_telegram, format_message, format_win_message, format_loss_message
 from src.notifier import send_signal_ntfy, send_trade_closed_ntfy
-
-
-# تغییر جدید: استفاده از تابع اختصاصی هر استراتژی
+from src.sms_sender import send_signal_sms, send_win_sms
 from src.risk_manager import can_open_trade
-
 
 if USE_GIST:
     from src.state_manager import load_state, save_state, should_send, mark_sent
     from src.trade_tracker import update_open_trades, calculate_win_stats
 else:
-    def load_state():
-        return {"last_signals": {}, "history": []}
-    def save_state(state):
-        return True
-    def should_send(signal, state):
-        return True
-    def mark_sent(signal, state):
-        return state
-    def update_open_trades(state, dataframes):
-        return state, 0
-    def calculate_win_stats(history):
-        return {}
+    def load_state(): return {"last_signals": {}, "history": []}
+    def save_state(state): return True
+    def should_send(signal, state): return True
+    def mark_sent(signal, state): return state
+    def update_open_trades(state, dataframes): return state, 0
+    def calculate_win_stats(history): return {}
 
 
 def process_timeframes(state, dataframes):
     print(f"\n🔍 Analyzing Gold M5 & M15 + DXY (yfinance)...")
 
     try:
-        # 1. دیتای طلا (M5 و M15)
         df_m5 = fetch_ohlc("5min", symbol="XAU/USD")
         df_m5 = add_indicators(df_m5)
-        
         df_m15 = fetch_ohlc("15min", symbol="XAU/USD")
         df_m15 = add_indicators(df_m15)
         
-        # ذخیره تو دیکشنری برای استفاده تو trade_tracker
         dataframes["XAU/USD:5min"] = df_m5
         dataframes["XAU/USD:15min"] = df_m15
 
-        # ذخیره قیمت لحظه‌ای
         if len(df_m5) > 1:
             last_close = float(df_m5.iloc[-1]["close"])
             state["current_price"] = last_close
@@ -58,7 +42,6 @@ def process_timeframes(state, dataframes):
         print(f"❌ Gold fetch failed - {e}")
         return state, False
 
-    # 2. دیتای دلار (DXY) فقط از yfinance
     df_dxy = None
     try:
         df_dxy = fetch_dxy_yfinance("5min")
@@ -72,7 +55,6 @@ def process_timeframes(state, dataframes):
         print(f"⚠️ DXY fetch failed - Correlation disabled: {e}")
         df_dxy = None
 
-    # 3. ارزیابی سیگنال
     signal = evaluate_signal(df_m5, df_m15, df_dxy, df_dxy)
 
     if signal is None:
@@ -86,23 +68,19 @@ def process_timeframes(state, dataframes):
     print(f"✅ SIGNAL: {strategy} {signal['side']} @ {signal['entry']} | Grade={grade} Score={score}")
     print(f"   ⏰ Time: {signal['time']} UTC")
 
-    # ─── فیلتر ۱: Quality ───
     if grade not in ALLOWED_GRADES:
         print(f"🚫 Grade {grade} not in {ALLOWED_GRADES}, skipped")
         return state, False
 
-    # ─── فیلتر ۲: ترید باز (به ازای هر استراتژی) ───
     allowed, reason = can_open_trade(state, strategy, max_open=MAX_OPEN_TRADES)
     if not allowed:
         print(f"🚫 {reason} - skipped")
         return state, False
 
-    # ─── فیلتر ۳: Cooldown ───
     if not should_send(signal, state):
         print(f"⏸ Cooldown active, skipped")
         return state, False
 
-    # ارسال سیگنال
     ok = send_telegram(format_message(signal))
     if ok:
         state = mark_sent(signal, state)
@@ -134,7 +112,6 @@ def main():
     state = load_state()
     print(f"📦 State keys: {list(state.keys())}")
 
-    # آمار تریدهای باز به تفکیک استراتژی
     open_by_strat = {}
     for t in state.get("history", []):
         if t.get("result") is None:
@@ -149,17 +126,14 @@ def main():
     state_changed = False
     dataframes = {}
 
-    # اجرای ارزیابی
     state, changed = process_timeframes(state, dataframes)
     if changed:
         state_changed = True
 
-    # بررسی تغییرات قیمت
     if state.get("current_price") is not None:
         state_changed = True
 
-    # بررسی تریدهای باز (بسته شدن)
-     if USE_GIST and dataframes:
+    if USE_GIST and dataframes:
         print(f"\n🔎 Checking open trades...")
         try:
             state, closed_count = update_open_trades(state, dataframes)
@@ -167,30 +141,25 @@ def main():
                 state_changed = True
                 print(f"✅ {closed_count} trade(s) closed")
 
-                # بررسی تمام تریدهای بسته‌شده (چه WIN چه LOSS)
                 for trade in state.get("history", []):
                     if (trade.get("result") in ["WIN", "LOSS"]
                             and trade.get("closed_at")
                             and trade.get("closed_at") > state.get("last_win_notified", "1970-01-01")):
                         
-                        # ۱. ارسال به تلگرام
                         if trade["result"] == "WIN":
                             msg = format_win_message(trade)
                         else:
                             msg = format_loss_message(trade)
                         send_telegram(msg, with_dashboard_button=True)
                         
-                        # ۲. ارسال به Ntfy
                         send_trade_closed_ntfy(trade)
                         
-                        # ۳. ارسال به SMS (فقط برای WIN - چون پیامک هزینه داره)
                         if trade["result"] == "WIN":
                             try:
                                 send_win_sms(trade)
                             except Exception as e:
                                 print(f"⚠️ WIN SMS error: {e}")
                         
-                        # آپدیت زمان آخرین اعلان
                         state["last_win_notified"] = trade["closed_at"]
 
             stats = calculate_win_stats(state.get("history", []))
@@ -202,7 +171,6 @@ def main():
         except Exception as e:
             print(f"❌ update_open_trades error: {e}")
 
-    # ذخیره state
     if state_changed:
         if save_state(state):
             print("💾 State saved ✅")
