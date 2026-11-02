@@ -3,22 +3,23 @@ from src.config import NTFY_TOPIC, NTFY_ENABLED
 
 
 def send_signal_ntfy(sig: dict) -> bool:
-    """ارسال سیگنال جدید به Ntfy"""
     if not NTFY_ENABLED:
         return False
 
     strategy = sig.get("strategy", "RANGE")
-    if strategy == "TREND": s_name = "📈 Trend"
-    elif strategy == "CORRELATION": s_name = "📊 Correlation"
-    elif strategy == "ICHIMOKU": s_name = "☁️ Ichimoku"
-    else: s_name = "🔄 Range"
+    if strategy == "TREND": s_name = "Trend"
+    elif strategy == "CORRELATION": s_name = "Correlation"
+    elif strategy == "ICHIMOKU": s_name = "Ichimoku"
+    else: s_name = "Range"
 
     emoji = "🟢" if sig["side"] == "BUY" else "🔴"
-    title = f"{emoji} GOLD {sig['side']} — {s_name}"
+    title = f"{emoji} GOLD {sig['side']}"
     
     q = sig.get("quality", {})
     body = (
-        f"Entry: {sig.get('entry')} | SL: {sig.get('sl')} | TP: {sig.get('tp')}\n"
+        f"استراتژی: {s_name}\n"
+        f"Entry: {sig.get('entry')}\n"
+        f"SL: {sig.get('sl')} | TP: {sig.get('tp')}\n"
         f"کیفیت: {q.get('score')}/100 ({q.get('grade')})"
     )
 
@@ -35,26 +36,25 @@ def send_signal_ntfy(sig: dict) -> bool:
 
 
 def send_trade_closed_ntfy(trade: dict) -> bool:
-    """ارسال پیام بسته شدن معامله (چه WIN چه LOSS) به Ntfy"""
     if not NTFY_ENABLED:
         return False
 
     strategy = trade.get("strategy", "RANGE")
-    if strategy == "TREND": s_name = "📈 Trend"
-    elif strategy == "CORRELATION": s_name = "📊 Correlation"
-    elif strategy == "ICHIMOKU": s_name = "☁️ Ichimoku"
-    else: s_name = "🔄 Range"
+    if strategy == "TREND": s_name = "Trend"
+    elif strategy == "CORRELATION": s_name = "Correlation"
+    elif strategy == "ICHIMOKU": s_name = "Ichimoku"
+    else: s_name = "Range"
 
     result = trade.get("result")
     pnl = trade.get("pnl", 0)
+    emoji = "🏆" if result == "WIN" else "❌"
     
-    if result == "WIN":
-        emoji = "🏆"; title = f"WIN: GOLD {trade['side']} ({s_name})"
-    else:
-        emoji = "❌"; title = f"LOSS: GOLD {trade['side']} ({s_name})"
-
+    title = f"{emoji} {trade['side']} — {result}"
+    
     body = (
-        f"Entry: {trade.get('entry')} -> Exit: {trade.get('exit_price')}\n"
+        f"استراتژی: {s_name}\n"
+        f"Entry: {trade.get('entry')}\n"
+        f"Exit: {trade.get('exit_price')}\n"
         f"سود/ضرر: {pnl:+.2f}"
     )
 
