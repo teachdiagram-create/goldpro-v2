@@ -1,17 +1,11 @@
 import pandas as pd
-import numpy as np
 
 
 def calculate_ichimoku(df: pd.DataFrame) -> pd.DataFrame:
     """
     محاسبه خطوط ایچیموکو.
-    - Tenkan-sen (Conversion Line): (بیشترین High + کمترین Low) / 2 در ۹ دوره
-    - Kijun-sen (Base Line): (بیشترین High + کمترین Low) / 2 در ۲۶ دوره
-    - Senkou Span A: (Tenkan + Kijun) / 2 که ۲۶ دوره به جلو شیفت داده شده
-    - Senkou Span B: (بیشترین High + کمترین Low) / 2 در ۵۲ دوره که ۲۶ دوره به جلو شیفت شده
     """
     df = df.copy()
-    
     # Tenkan-sen (9)
     high_9 = df["high"].rolling(window=9).max()
     low_9 = df["low"].rolling(window=9).min()
@@ -35,18 +29,17 @@ def calculate_ichimoku(df: pd.DataFrame) -> pd.DataFrame:
 
 def detect_ichimoku_signal(df_m5: pd.DataFrame) -> dict:
     """
-    تشخیص سیگنال ایچیموکو.
-    - BUY: کراس تنکان به بالا + قیمت بالای ابر کومو
-    - SELL: کراس تنکان به پایین + قیمت زیر ابر کومو
+    تشخیص سیگنال ایچیموکو بر اساس استراتژی «شکست ابر کومو» (Kumo Breakout).
+    
+    - BUY: کندل قبلی زیر ابر بوده، کندل فعلی بالای ابر بسته شده، و تنکان > کیجون.
+    - SELL: کندل قبلی بالای ابر بوده، کندل فعلی زیر ابر بسته شده، و تنکان < کیجون.
     """
     if len(df_m5) < 60:
         return None
 
-    # ۱. محاسبه اندیکاتورها (اگه از قبل حساب نشدن)
     if "tenkan" not in df_m5.columns:
         df_m5 = calculate_ichimoku(df_m5)
 
-    # فقط کندل‌های بسته‌شده
     closed = df_m5.iloc[:-1]
     last = closed.iloc[-1]
     prev = closed.iloc[-2]
@@ -56,37 +49,38 @@ def detect_ichimoku_signal(df_m5: pd.DataFrame) -> dict:
     senkou_a = float(last["senkou_a"])
     senkou_b = float(last["senkou_b"])
     close = float(last["close"])
-
+    prev_close = float(prev["close"])
+    
     prev_tenkan = float(prev["tenkan"])
     prev_kijun = float(prev["kijun"])
 
+    # اگه دیتا ناقص بود، سیگنال نده
     if any(pd.isna(x) for x in [tenkan, kijun, senkou_a, senkou_b, prev_tenkan, prev_kijun]):
         return None
 
-    # محدوده‌ی ابر کومو (Kumo)
     kumo_top = max(senkou_a, senkou_b)
     kumo_bottom = min(senkou_a, senkou_b)
 
-    # ۲. کراس‌ها
-    cross_up = (prev_tenkan <= prev_kijun) and (tenkan > kijun)
-    cross_down = (prev_tenkan >= prev_kijun) and (tenkan < kijun)
+    # 🚨 منطق جدید: شکست ابر کومو (Kumo Breakout)
+    
+    # BUY: کندل قبلی زیر ابر، کندل فعلی بالای ابر، تنکان بالای کیجون
+    breakout_up = (prev_close <= kumo_top) and (close > kumo_top) and (tenkan > kijun)
+    
+    # SELL: کندل قبلی بالای ابر، کندل فعلی زیر ابر، تنکان زیر کیجون
+    breakout_down = (prev_close >= kumo_bottom) and (close < kumo_bottom) and (tenkan < kijun)
 
-    # ۳. تأیید ابر
-    above_cloud = close > kumo_top
-    below_cloud = close < kumo_bottom
-
-    if cross_up and above_cloud:
+    if breakout_up:
         return {
-            "pattern": "ichimoku_cross",
+            "pattern": "ichimoku_breakout",
             "strategy": "ICHIMOKU",
             "direction": "BUY",
             "tenkan": round(tenkan, 2),
             "kijun": round(kijun, 2),
         }
 
-    if cross_down and below_cloud:
+    if breakout_down:
         return {
-            "pattern": "ichimoku_cross",
+            "pattern": "ichimoku_breakout",
             "strategy": "ICHIMOKU",
             "direction": "SELL",
             "tenkan": round(tenkan, 2),
