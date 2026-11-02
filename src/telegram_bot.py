@@ -1,11 +1,24 @@
 import requests
 from src.config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, DASHBOARD_URL
 
+
 def _emoji(side: str) -> str:
     return "🟢" if side == "BUY" else "🔴"
 
+
 def _grade_emoji(grade: str) -> str:
     return {"A": "🏆", "B": "✅", "C": "⚠️", "D": "🚫"}.get(grade, "❔")
+
+
+def _get_strategy_name(strategy: str) -> str:
+    if strategy == "TREND":
+        return "📈 Trend (EMA+MACD)"
+    elif strategy == "CORRELATION":
+        return "📊 Correlation (DXY)"
+    elif strategy == "ICHIMOKU":
+        return "☁️ Ichimoku (Kumo)"
+    return "🔄 Range (RSI)"
+
 
 def format_message(sig: dict) -> str:
     tf = sig.get("timeframe", "5min").replace("min", "M")
@@ -13,16 +26,9 @@ def format_message(sig: dict) -> str:
     sl = sig.get("sl", "?")
     tp = sig.get("tp", "?")
     strategy = sig.get("strategy", "RANGE")
+    signal_id = sig.get("signal_id", "N/A")
     
-    # تعیین اسم استراتژی برای پیام
-    if strategy == "TREND":
-        strategy_name = "📈 Trend (EMA+MACD)"
-    elif strategy == "CORRELATION":
-        strategy_name = "📊 Correlation (DXY)"
-    elif strategy == "ICHIMOKU":
-        strategy_name = "☁️ Ichimoku (Kumo)"
-    else:
-        strategy_name = "🔄 Range (RSI)"
+    strategy_name = _get_strategy_name(strategy)
 
     rr_text = ""
     if sig.get("rr") is not None:
@@ -44,6 +50,7 @@ def format_message(sig: dict) -> str:
     lines = [
         f"{_emoji(sig['side'])} <b>GOLD {sig['side']} — {tf}</b>",
         "━━━━━━━━━━━━━━━━━━",
+        f"🆔 کد سیگنال: <b>{signal_id}</b>",
         f"🎯 استراتژی: <b>{strategy_name}</b>",
         f"💵 Entry: <b>{entry}</b>",
         sl_line,
@@ -73,20 +80,19 @@ def format_message(sig: dict) -> str:
 
 
 def format_win_message(trade: dict) -> str:
-    """ساخت پیام برای معامله‌ای که با سود (WIN) بسته شده"""
+    """پیام بسته شدن معامله با سود (WIN)"""
     tf = trade.get("timeframe", "5min").replace("min", "M")
     strategy = trade.get("strategy", "RANGE")
     pnl = trade.get("pnl", 0)
     pnl_str = f"+{pnl}" if pnl >= 0 else str(pnl)
+    signal_id = trade.get("signal_id", "N/A")
     
-    if strategy == "TREND": strategy_name = "📈 Trend"
-    elif strategy == "CORRELATION": strategy_name = "📊 Correlation"
-    elif strategy == "ICHIMOKU": strategy_name = "☁️ Ichimoku"
-    else: strategy_name = "🔄 Range"
+    strategy_name = _get_strategy_name(strategy)
 
     return (
         f"🏆 <b>GOLD {trade['side']} — WIN</b> ({tf})\n"
         f"━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 کد سیگنال: <b>{signal_id}</b>\n"
         f"🎯 استراتژی: <b>{strategy_name}</b>\n"
         f"💵 Entry: {trade.get('entry')}\n"
         f"🏁 Exit: {trade.get('exit_price')}\n"
@@ -96,20 +102,19 @@ def format_win_message(trade: dict) -> str:
 
 
 def format_loss_message(trade: dict) -> str:
-    """ساخت پیام برای معامله‌ای که با ضرر (LOSS) بسته شده"""
+    """پیام بسته شدن معامله با ضرر (LOSS)"""
     tf = trade.get("timeframe", "5min").replace("min", "M")
     strategy = trade.get("strategy", "RANGE")
     pnl = trade.get("pnl", 0)
     pnl_str = f"+{pnl}" if pnl > 0 else str(pnl)
+    signal_id = trade.get("signal_id", "N/A")
     
-    if strategy == "TREND": strategy_name = "📈 Trend"
-    elif strategy == "CORRELATION": strategy_name = "📊 Correlation"
-    elif strategy == "ICHIMOKU": strategy_name = "☁️ Ichimoku"
-    else: strategy_name = "🔄 Range"
+    strategy_name = _get_strategy_name(strategy)
 
     return (
         f"❌ <b>GOLD {trade['side']} — LOSS</b> ({tf})\n"
         f"━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 کد سیگنال: <b>{signal_id}</b>\n"
         f"🎯 استراتژی: <b>{strategy_name}</b>\n"
         f"💵 Entry: {trade.get('entry')}\n"
         f"🏁 Exit: {trade.get('exit_price')}\n"
@@ -128,6 +133,7 @@ def _dashboard_keyboard():
 
 def send_telegram(text: str, with_dashboard_button: bool = False) -> bool:
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        print("[!] Telegram credentials missing")
         return False
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -142,6 +148,10 @@ def send_telegram(text: str, with_dashboard_button: bool = False) -> bool:
 
     try:
         r = requests.post(url, json=payload, timeout=15)
-        return r.status_code == 200
-    except Exception:
+        if r.status_code != 200:
+            print(f"[!] Telegram error: {r.text}")
+            return False
+        return True
+    except Exception as e:
+        print(f"[!] Telegram exception: {e}")
         return False
