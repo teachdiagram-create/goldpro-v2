@@ -98,6 +98,7 @@ def mark_sent(signal: dict, state: dict) -> dict:
 
     state.setdefault("last_signals", {})
     state.setdefault("history", [])
+    state.setdefault("last_notified", "1970-01-01")
 
     state["last_signals"][key] = {
         "symbol": symbol,
