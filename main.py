@@ -6,6 +6,9 @@ from src.signal_logic import evaluate_signal
 from src.telegram_bot import send_telegram, format_message
 from src.notifier import send_signal_ntfy, send_win_ntfy
 from src.sms_sender import send_signal_sms, send_win_sms
+from src.telegram_bot import send_telegram, format_message, format_win_message, format_loss_message
+from src.notifier import send_signal_ntfy, send_trade_closed_ntfy
+
 
 # تغییر جدید: استفاده از تابع اختصاصی هر استراتژی
 from src.risk_manager import can_open_trade
@@ -156,7 +159,7 @@ def main():
         state_changed = True
 
     # بررسی تریدهای باز (بسته شدن)
-    if USE_GIST and dataframes:
+     if USE_GIST and dataframes:
         print(f"\n🔎 Checking open trades...")
         try:
             state, closed_count = update_open_trades(state, dataframes)
@@ -164,16 +167,30 @@ def main():
                 state_changed = True
                 print(f"✅ {closed_count} trade(s) closed")
 
-                # ارسال نوتیفیکیشن برد
+                # بررسی تمام تریدهای بسته‌شده (چه WIN چه LOSS)
                 for trade in state.get("history", []):
-                    if (trade.get("result") == "WIN"
+                    if (trade.get("result") in ["WIN", "LOSS"]
                             and trade.get("closed_at")
                             and trade.get("closed_at") > state.get("last_win_notified", "1970-01-01")):
-                        send_win_ntfy(trade)
-                        try:
-                            send_win_sms(trade)
-                        except Exception as e:
-                            print(f"⚠️ WIN SMS error: {e}")
+                        
+                        # ۱. ارسال به تلگرام
+                        if trade["result"] == "WIN":
+                            msg = format_win_message(trade)
+                        else:
+                            msg = format_loss_message(trade)
+                        send_telegram(msg, with_dashboard_button=True)
+                        
+                        # ۲. ارسال به Ntfy
+                        send_trade_closed_ntfy(trade)
+                        
+                        # ۳. ارسال به SMS (فقط برای WIN - چون پیامک هزینه داره)
+                        if trade["result"] == "WIN":
+                            try:
+                                send_win_sms(trade)
+                            except Exception as e:
+                                print(f"⚠️ WIN SMS error: {e}")
+                        
+                        # آپدیت زمان آخرین اعلان
                         state["last_win_notified"] = trade["closed_at"]
 
             stats = calculate_win_stats(state.get("history", []))
