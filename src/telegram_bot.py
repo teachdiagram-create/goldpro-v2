@@ -131,7 +131,7 @@ def _dashboard_keyboard():
     }
 
 
-def send_telegram(text: str, with_dashboard_button: bool = False) -> bool:
+def send_telegram(text: str, with_dashboard_button: bool = True) -> bool:
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         print("[!] Telegram credentials missing")
         return False
