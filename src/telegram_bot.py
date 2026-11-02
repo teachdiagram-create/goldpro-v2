@@ -1,14 +1,11 @@
 import requests
 from src.config import TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, DASHBOARD_URL
 
-
 def _emoji(side: str) -> str:
     return "🟢" if side == "BUY" else "🔴"
 
-
 def _grade_emoji(grade: str) -> str:
     return {"A": "🏆", "B": "✅", "C": "⚠️", "D": "🚫"}.get(grade, "❔")
-
 
 def format_message(sig: dict) -> str:
     tf = sig.get("timeframe", "5min").replace("min", "M")
@@ -16,8 +13,16 @@ def format_message(sig: dict) -> str:
     sl = sig.get("sl", "?")
     tp = sig.get("tp", "?")
     strategy = sig.get("strategy", "RANGE")
-
-    strategy_name = "📈 Trend (EMA+MACD)" if strategy == "TREND" else "🔄 Range (RSI)"
+    
+    # تعیین اسم استراتژی برای پیام
+    if strategy == "TREND":
+        strategy_name = "📈 Trend (EMA+MACD)"
+    elif strategy == "CORRELATION":
+        strategy_name = "📊 Correlation (DXY)"
+    elif strategy == "ICHIMOKU":
+        strategy_name = "☁️ Ichimoku (Kumo)"
+    else:
+        strategy_name = "🔄 Range (RSI)"
 
     rr_text = ""
     if sig.get("rr") is not None:
@@ -58,7 +63,6 @@ def format_message(sig: dict) -> str:
     lines.append(f"📈 ATR: {sig.get('atr', '?')}")
     lines.append(f"🕐 {sig.get('time', '?')}")
     
-    # دلیل (کوتاه شده اگه طولانی بود)
     reason = sig.get("reason", "")
     if reason:
         if len(reason) > 50:
@@ -66,6 +70,52 @@ def format_message(sig: dict) -> str:
         lines.append(f"📝 {reason}")
 
     return "\n".join(lines)
+
+
+def format_win_message(trade: dict) -> str:
+    """ساخت پیام برای معامله‌ای که با سود (WIN) بسته شده"""
+    tf = trade.get("timeframe", "5min").replace("min", "M")
+    strategy = trade.get("strategy", "RANGE")
+    pnl = trade.get("pnl", 0)
+    pnl_str = f"+{pnl}" if pnl >= 0 else str(pnl)
+    
+    if strategy == "TREND": strategy_name = "📈 Trend"
+    elif strategy == "CORRELATION": strategy_name = "📊 Correlation"
+    elif strategy == "ICHIMOKU": strategy_name = "☁️ Ichimoku"
+    else: strategy_name = "🔄 Range"
+
+    return (
+        f"🏆 <b>GOLD {trade['side']} — WIN</b> ({tf})\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🎯 استراتژی: <b>{strategy_name}</b>\n"
+        f"💵 Entry: {trade.get('entry')}\n"
+        f"🏁 Exit: {trade.get('exit_price')}\n"
+        f"💰 سود: <b>{pnl_str}</b>\n"
+        f"🕐 {trade.get('exit_time', '')}"
+    )
+
+
+def format_loss_message(trade: dict) -> str:
+    """ساخت پیام برای معامله‌ای که با ضرر (LOSS) بسته شده"""
+    tf = trade.get("timeframe", "5min").replace("min", "M")
+    strategy = trade.get("strategy", "RANGE")
+    pnl = trade.get("pnl", 0)
+    pnl_str = f"+{pnl}" if pnl > 0 else str(pnl)
+    
+    if strategy == "TREND": strategy_name = "📈 Trend"
+    elif strategy == "CORRELATION": strategy_name = "📊 Correlation"
+    elif strategy == "ICHIMOKU": strategy_name = "☁️ Ichimoku"
+    else: strategy_name = "🔄 Range"
+
+    return (
+        f"❌ <b>GOLD {trade['side']} — LOSS</b> ({tf})\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"🎯 استراتژی: <b>{strategy_name}</b>\n"
+        f"💵 Entry: {trade.get('entry')}\n"
+        f"🏁 Exit: {trade.get('exit_price')}\n"
+        f"💰 ضرر: <b>{pnl_str}</b>\n"
+        f"🕐 {trade.get('exit_time', '')}"
+    )
 
 
 def _dashboard_keyboard():
@@ -76,9 +126,8 @@ def _dashboard_keyboard():
     }
 
 
-def send_telegram(text: str, with_dashboard_button: bool = True) -> bool:
+def send_telegram(text: str, with_dashboard_button: bool = False) -> bool:
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        print("[!] Telegram credentials missing")
         return False
 
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -93,10 +142,6 @@ def send_telegram(text: str, with_dashboard_button: bool = True) -> bool:
 
     try:
         r = requests.post(url, json=payload, timeout=15)
-        if r.status_code != 200:
-            print(f"[!] Telegram error: {r.text}")
-            return False
-        return True
-    except Exception as e:
-        print(f"[!] Telegram exception: {e}")
+        return r.status_code == 200
+    except Exception:
         return False
