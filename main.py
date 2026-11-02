@@ -66,7 +66,7 @@ def process_timeframes(state, dataframes):
     strategy = signal["strategy"]
     
     print(f"✅ SIGNAL: {strategy} {signal['side']} @ {signal['entry']} | Grade={grade} Score={score}")
-    print(f"   ⏰ Time: {signal['time']} UTC")
+    print(f"   🆔 ID: {signal.get('signal_id', 'N/A')} | Time: {signal.get('time')} UTC")
 
     if grade not in ALLOWED_GRADES:
         print(f"🚫 Grade {grade} not in {ALLOWED_GRADES}, skipped")
@@ -81,7 +81,7 @@ def process_timeframes(state, dataframes):
         print(f"⏸ Cooldown active, skipped")
         return state, False
 
-    ok = send_telegram(format_message(signal))
+    ok = send_telegram(format_message(signal), with_dashboard_button=True)
     if ok:
         state = mark_sent(signal, state)
         print(f"📨 Telegram sent")
@@ -112,6 +112,12 @@ def main():
     state = load_state()
     print(f"📦 State keys: {list(state.keys())}")
 
+    # اطمینان از وجود فیلدهای مورد نیاز در state
+    if "last_notified" not in state:
+        state["last_notified"] = "1970-01-01"
+    if "last_win_notified" not in state:
+        state["last_win_notified"] = "1970-01-01"
+
     open_by_strat = {}
     for t in state.get("history", []):
         if t.get("result") is None:
@@ -133,38 +139,38 @@ def main():
     if state.get("current_price") is not None:
         state_changed = True
 
-if USE_GIST and dataframes:
-    print(f"\n🔎 Checking open trades...")
-    try:
-        state, closed_count = update_open_trades(state, dataframes)
-        if closed_count > 0:
-            state_changed = True
-            print(f"✅ {closed_count} trade(s) closed")
+    if USE_GIST and dataframes:
+        print(f"\n🔎 Checking open trades...")
+        try:
+            state, closed_count = update_open_trades(state, dataframes)
+            if closed_count > 0:
+                state_changed = True
+                print(f"✅ {closed_count} trade(s) closed")
 
-            last_notified = state.get("last_notified", "1970-01-01")
-            for trade in state.get("history", []):
-                if (trade.get("result") in ["WIN", "LOSS"]
-                        and trade.get("closed_at")
-                        and trade.get("closed_at") > last_notified):
-                    
-                    if trade["result"] == "WIN":
-                        msg = format_win_message(trade)
-                    else:
-                        msg = format_loss_message(trade)
-                    send_telegram(msg, with_dashboard_button=True)
-                    
-                    send_trade_closed_ntfy(trade)
-                    
-                    if trade["result"] == "WIN":
-                        try:
-                            send_win_sms(trade)
-                        except Exception as e:
-                            print(f"⚠️ WIN SMS error: {e}")
-                    
-                    # اینجا last_notified رو آپدیت می‌کنیم
-                    state["last_notified"] = trade["closed_at"]
+                last_notified = state.get("last_notified", "1970-01-01")
+                for trade in state.get("history", []):
+                    if (trade.get("result") in ["WIN", "LOSS"]
+                            and trade.get("closed_at")
+                            and trade.get("closed_at") > last_notified):
                         
-                        state["last_win_notified"] = trade["closed_at"]
+                        if trade["result"] == "WIN":
+                            msg = format_win_message(trade)
+                        else:
+                            msg = format_loss_message(trade)
+                        send_telegram(msg, with_dashboard_button=True)
+                        
+                        send_trade_closed_ntfy(trade)
+                        
+                        if trade["result"] == "WIN":
+                            try:
+                                send_win_sms(trade)
+                            except Exception as e:
+                                print(f"⚠️ WIN SMS error: {e}")
+                        
+                        # آپدیت فیلدهای زمان اعلان برای جلوگیری از ارسال تکراری
+                        state["last_notified"] = trade["closed_at"]
+                        if trade["result"] == "WIN":
+                            state["last_win_notified"] = trade["closed_at"]
 
             stats = calculate_win_stats(state.get("history", []))
             if stats:
