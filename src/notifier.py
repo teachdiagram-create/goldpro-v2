@@ -1,82 +1,70 @@
-"""
-ارسال نوتیفیکیشن از طریق Ntfy.sh
-"""
 import requests
 from src.config import NTFY_TOPIC, NTFY_ENABLED
 
 
-NTFY_URL = f"https://ntfy.sh/{NTFY_TOPIC}"
-
-
-def send_ntfy(title: str, message: str, priority: int = 4, tags: list = None):
-    """ارسال نوتیفیکیشن به Ntfy"""
+def send_signal_ntfy(sig: dict) -> bool:
+    """ارسال سیگنال جدید به Ntfy"""
     if not NTFY_ENABLED:
-        print("⏸ Ntfy disabled")
         return False
 
-    try:
-        headers = {
-            "Priority": str(priority),
-            "Content-Type": "text/plain; charset=utf-8",
-        }
+    strategy = sig.get("strategy", "RANGE")
+    if strategy == "TREND": s_name = "📈 Trend"
+    elif strategy == "CORRELATION": s_name = "📊 Correlation"
+    elif strategy == "ICHIMOKU": s_name = "☁️ Ichimoku"
+    else: s_name = "🔄 Range"
 
-        # Ntfy برای UTF-8 باید از X-Title استفاده کنه
-        if title:
-            # Encode UTF-8 as latin-1 bytes (trick for requests)
-            headers["X-Title"] = title.encode('utf-8').decode('latin-1')
-
-        if tags:
-            headers["Tags"] = ",".join(tags)
-
-        r = requests.post(
-            NTFY_URL,
-            data=message.encode('utf-8'),
-            headers=headers,
-            timeout=10
-        )
-
-        if r.status_code != 200:
-            print(f"[!] Ntfy HTTP {r.status_code}: {r.text[:200]}")
-            return False
-
-        print(f"[Ntfy] Sent OK: {title[:40]}")
-        return True
-
-    except Exception as e:
-        print(f"[!] Ntfy error: {e}")
-        return False
-def send_signal_ntfy(signal: dict):
-    """ارسال سیگنال به Ntfy"""
-    side = signal.get("side", "?")
-    tf = signal.get("timeframe", "5min").replace("min", "M")
-
-    if side == "BUY":
-        emoji = "🟢"
-        tags = ["green_circle", "chart_with_upwards_trend", "moneybag"]
-    else:
-        emoji = "🔴"
-        tags = ["red_circle", "chart_with_downwards_trend", "moneybag"]
-
-    title = f"{emoji} سیگنال {side} — {tf}"
-
-    message = (
-        f"💵 ورود: {signal.get('entry', '?')}\n"
-        f"🛑 SL: {signal.get('sl', '?')}\n"
-        f"🎯 TP: {signal.get('tp', '?')}\n"
-        f"📊 RSI: {signal.get('rsi', '?')} | ADX: {signal.get('adx', '?')}\n"
-        f"📈 ATR: {signal.get('atr', '?')}"
+    emoji = "🟢" if sig["side"] == "BUY" else "🔴"
+    title = f"{emoji} GOLD {sig['side']} — {s_name}"
+    
+    q = sig.get("quality", {})
+    body = (
+        f"Entry: {sig.get('entry')} | SL: {sig.get('sl')} | TP: {sig.get('tp')}\n"
+        f"کیفیت: {q.get('score')}/100 ({q.get('grade')})"
     )
 
-    return send_ntfy(title, message, priority=5, tags=tags)
+    try:
+        r = requests.post(
+            f"https://ntfy.sh/{NTFY_TOPIC}",
+            data=body.encode('utf-8'),
+            headers={"Title": title.encode('utf-8'), "Priority": "high", "Tags": "chart_with_upwards_trend"},
+            timeout=10
+        )
+        return r.status_code == 200
+    except Exception:
+        return False
 
 
-def send_win_ntfy(trade: dict):
-    """ارسال نوتیف WIN"""
+def send_trade_closed_ntfy(trade: dict) -> bool:
+    """ارسال پیام بسته شدن معامله (چه WIN چه LOSS) به Ntfy"""
+    if not NTFY_ENABLED:
+        return False
+
+    strategy = trade.get("strategy", "RANGE")
+    if strategy == "TREND": s_name = "📈 Trend"
+    elif strategy == "CORRELATION": s_name = "📊 Correlation"
+    elif strategy == "ICHIMOKU": s_name = "☁️ Ichimoku"
+    else: s_name = "🔄 Range"
+
+    result = trade.get("result")
     pnl = trade.get("pnl", 0)
-    side = trade.get("side", "?")
-    tf = trade.get("timeframe", "?")
+    
+    if result == "WIN":
+        emoji = "🏆"; title = f"WIN: GOLD {trade['side']} ({s_name})"
+    else:
+        emoji = "❌"; title = f"LOSS: GOLD {trade['side']} ({s_name})"
 
-    title = f"🎉 WIN +{pnl:.2f}"
-    message = f"معامله {side} در {tf} برنده شد!"
+    body = (
+        f"Entry: {trade.get('entry')} -> Exit: {trade.get('exit_price')}\n"
+        f"سود/ضرر: {pnl:+.2f}"
+    )
 
-    return send_ntfy(title, message, priority=4, tags=["tada", "moneybag"])
+    try:
+        r = requests.post(
+            f"https://ntfy.sh/{NTFY_TOPIC}",
+            data=body.encode('utf-8'),
+            headers={"Title": title.encode('utf-8'), "Priority": "default", "Tags": "checkered_flag"},
+            timeout=10
+        )
+        return r.status_code == 200
+    except Exception:
+        return False
