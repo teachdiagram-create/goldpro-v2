@@ -22,7 +22,6 @@ else:
 
 def process_timeframes(state, dataframes):
     print(f"\n🔍 Analyzing Gold M5 & M15 + DXY (yfinance)...")
-
     try:
         df_m5 = fetch_ohlc("5min", symbol="XAU/USD")
         df_m5 = add_indicators(df_m5)
@@ -37,7 +36,6 @@ def process_timeframes(state, dataframes):
             state["current_price"] = last_close
             state["price_updated_at"] = datetime.utcnow().isoformat()
             print(f"💰 Current XAU/USD: {last_close:.2f} (from M5)")
-
     except Exception as e:
         print(f"❌ Gold fetch failed - {e}")
         return state, False
@@ -85,19 +83,16 @@ def process_timeframes(state, dataframes):
     if ok:
         state = mark_sent(signal, state)
         print(f"📨 Telegram sent")
-
         try:
             if send_signal_ntfy(signal):
                 print(f"🔔 Ntfy sent")
         except Exception as e:
             print(f"⚠️ Ntfy error: {e}")
-
         try:
             if send_signal_sms(signal):
                 print(f"📲 SMS sent")
         except Exception as e:
             print(f"⚠️ SMS error: {e}")
-
         return state, True
     else:
         print(f"❌ Telegram failed")
@@ -112,7 +107,6 @@ def main():
     state = load_state()
     print(f"📦 State keys: {list(state.keys())}")
 
-    # اطمینان از وجود فیلدهای مورد نیاز در state
     if "last_notified" not in state:
         state["last_notified"] = "1970-01-01"
     if "last_win_notified" not in state:
@@ -158,7 +152,6 @@ def main():
                         else:
                             msg = format_loss_message(trade)
                         send_telegram(msg, with_dashboard_button=True)
-                        
                         send_trade_closed_ntfy(trade)
                         
                         if trade["result"] == "WIN":
@@ -167,7 +160,6 @@ def main():
                             except Exception as e:
                                 print(f"⚠️ WIN SMS error: {e}")
                         
-                        # آپدیت فیلدهای زمان اعلان برای جلوگیری از ارسال تکراری
                         state["last_notified"] = trade["closed_at"]
                         if trade["result"] == "WIN":
                             state["last_win_notified"] = trade["closed_at"]
