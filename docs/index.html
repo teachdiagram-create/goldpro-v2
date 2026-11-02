@@ -261,12 +261,11 @@ let equityChart = null;
 let currentHistory = [];
 let countdown = 60;
 let lastSeenSentAt = localStorage.getItem("last_seen_sent_at") || "";
+
 function formatTime(iso, full = false) {
   if (!iso) return "—";
   const d = new Date(iso + "Z");
-  if (full) {
-    return d.toLocaleString("fa-IR", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
-  }
+  if (full) return d.toLocaleString("fa-IR", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
   return d.toLocaleString("fa-IR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
@@ -283,29 +282,10 @@ function getResultBadge(r) {
 }
 
 function round2(n) { return Math.round(n * 100) / 100; }
+
 let audioContext = null;
-function initAudioContext() {
-  if (!audioContext) { audioContext = new (window.AudioContext || window.webkitAudioContext)(); }
-  if (audioContext.state === 'suspended') audioContext.resume();
-  return audioContext;
-}
-
-function playSignalAlarm() {
-  try {
-    const ctx = initAudioContext(); const now = ctx.currentTime;
-    for (let round = 0; round < 3; round++) {
-      const offset = round * 0.8;
-      const beeps = [{ start: offset, duration: 0.15, freq: 880 }, { start: offset + 0.2, duration: 0.15, freq: 1100 }, { start: offset + 0.4, duration: 0.25, freq: 1320 }];
-      beeps.forEach(beep => {
-        const osc = ctx.createOscillator(); const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination); osc.frequency.value = beep.freq; osc.type = 'sine';
-        gain.gain.setValueAtTime(0, now + beep.start); gain.gain.linearRampToValueAtTime(1.0, now + beep.start + 0.02); gain.gain.linearRampToValueAtTime(0, now + beep.start + beep.duration);
-        osc.start(now + beep.start); osc.stop(now + beep.start + beep.duration);
-      });
-    }
-  } catch (e) { console.log('Sound failed:', e); }
-}
-
+function initAudioContext() { if (!audioContext) { audioContext = new (window.AudioContext || window.webkitAudioContext)(); } if (audioContext.state === 'suspended') audioContext.resume(); return audioContext; }
+function playSignalAlarm() { try { const ctx = initAudioContext(); const now = ctx.currentTime; for (let round = 0; round < 3; round++) { const offset = round * 0.8; const beeps = [{ start: offset, duration: 0.15, freq: 880 }, { start: offset + 0.2, duration: 0.15, freq: 1100 }, { start: offset + 0.4, duration: 0.25, freq: 1320 }]; beeps.forEach(beep => { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); osc.frequency.value = beep.freq; osc.type = 'sine'; gain.gain.setValueAtTime(0, now + beep.start); gain.gain.linearRampToValueAtTime(1.0, now + beep.start + 0.02); gain.gain.linearRampToValueAtTime(0, now + beep.start + beep.duration); osc.start(now + beep.start); osc.stop(now + beep.start + beep.duration); }); } } catch (e) { console.log('Sound failed:', e); } }
 function testSoundAndVibrate() { initAudioContext(); playSignalAlarm(); if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]); }
 
 async function initNotification() {
@@ -319,6 +299,42 @@ async function initNotification() {
   }
 }
 
+async function loadData() {
+  setStatus("⏳ در حال بارگذاری...");
+  try {
+    const r = await fetch(GIST_API + "?t=" + Date.now());
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
+    const files = data.files || {};
+    const file = files["goldpro-state.json"] || Object.values(files)[0];
+    if (!file) throw new Error("فایل state پیدا نشد");
+    let state = {};
+    try { state = JSON.parse(file.content || "{}"); } catch (e) { throw new Error("JSON state خرابه"); }
+    currentHistory = state.history || [];
+    if (state.current_price) document.getElementById("live-price").textContent = round2(state.current_price).toLocaleString("fa-IR");
+    renderStats(currentHistory);
+    renderTable(currentHistory);
+    renderCharts(currentHistory);
+    setStatus(`✅ متصل — ${currentHistory.length} سیگنال`);
+    checkForNewSignals(currentHistory);
+    countdown = 60;
+  } catch (e) { console.error(e); setStatus("❌ خطا: " + e.message, true); }
+}
+
+function checkForNewSignals(history) {
+  if (!history.length) return;
+  const latest = history[0];
+  if (latest.sent_at && latest.sent_at !== lastSeenSentAt) {
+    if (lastSeenSentAt) {
+      playSignalAlarm();
+      if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+      if (Notification.permission === "granted") new Notification(`${latest.side === 'BUY' ? '🟢' : '🔴'} ${latest.side} — ${latest.strategy || 'RANGE'}`, { body: `${latest.entry} | کیفیت: ${latest.quality ? latest.quality.grade : '?'}` });
+    }
+    lastSeenSentAt = latest.sent_at;
+    localStorage.setItem("last_seen_sent_at", lastSeenSentAt);
+  }
+}
+
 function renderStats(history) {
   const total = history.length;
   const wins = history.filter(t => t.result === "WIN").length;
@@ -327,14 +343,9 @@ function renderStats(history) {
   const closed = wins + losses;
   const winRate = closed > 0 ? round2(wins / closed * 100) : 0;
   const pnl = round2(history.reduce((s, t) => s + (t.pnl || 0), 0));
-  
   let totalWin = 0, totalLoss = 0;
-  history.forEach(t => {
-    if (t.result === "WIN" && t.pnl) totalWin += t.pnl;
-    if (t.result === "LOSS" && t.pnl) totalLoss += Math.abs(t.pnl);
-  });
+  history.forEach(t => { if (t.result === "WIN" && t.pnl) totalWin += t.pnl; if (t.result === "LOSS" && t.pnl) totalLoss += Math.abs(t.pnl); });
   const pf = totalLoss > 0 ? round2(totalWin / totalLoss) : 0;
-  
   document.getElementById("total").textContent = total;
   document.getElementById("wins").textContent = wins;
   document.getElementById("losses").textContent = losses;
@@ -344,13 +355,11 @@ function renderStats(history) {
   document.getElementById("total-pnl").className = "stat-value small " + (pnl >= 0 ? "pnl-pos" : "pnl-neg");
   document.getElementById("profit-factor").textContent = pf;
   if (history[0]) document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
-
-  // کارت‌های آمار استراتژی‌ها
+  
   const strategies = ["RANGE", "TREND", "CORRELATION", "ICHIMOKU"];
   const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku" };
   const classes = { RANGE: "range", TREND: "trend", CORRELATION: "correlation", ICHIMOKU: "ichimoku" };
   let stratHtml = "";
-  
   strategies.forEach(strat => {
     const trades = history.filter(t => (t.strategy || "RANGE") === strat);
     if (trades.length === 0) return;
@@ -362,112 +371,42 @@ function renderStats(history) {
     const sPnl = round2(trades.reduce((sum, t) => sum + (t.pnl || 0), 0));
     const wrColor = sWr >= 50 ? "color:#4ade80;" : "color:#f87171;";
     const pnlColor = sPnl >= 0 ? "color:#4ade80;" : "color:#f87171;";
-    stratHtml += `
-      <div class="strat-card ${classes[strat]}">
-        <div class="strat-title">${names[strat]}</div>
-        <div class="strat-wr" style="${wrColor}">${sWr}%</div>
-        <div class="strat-detail">${sWins}W / ${sLosses}L | در جریان: ${sOpens}<br><span style="${pnlColor}">PnL: ${sPnl >= 0 ? '+' : ''}${sPnl}</span></div>
-      </div>`;
+    stratHtml += `<div class="strat-card ${classes[strat]}"><div class="strat-title">${names[strat]}</div><div class="strat-wr" style="${wrColor}">${sWr}%</div><div class="strat-detail">${sWins}W / ${sLosses}L | در جریان: ${sOpens}<br><span style="${pnlColor}">PnL: ${sPnl >= 0 ? '+' : ''}${sPnl}</span></div></div>`;
   });
   document.getElementById("strategy-stats").innerHTML = stratHtml;
 }
-async function loadData() {
-  setStatus("⏳ در حال بارگذاری...");
-  try {
-    const r = await fetch(GIST_API + "?t=" + Date.now());
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const data = await r.json();
-    const files = data.files || {};
-    const file = files["goldpro-state.json"] || Object.values(files)[0];
-    if (!file) throw new Error("فایل state پیدا نشد");
-    
-    let state = {};
-    try { state = JSON.parse(file.content || "{}"); } catch (e) { throw new Error("JSON state خرابه"); }
 
-    currentHistory = state.history || [];
-    const currentPrice = state.current_price;
-    
-    if (currentPrice) document.getElementById("live-price").textContent = round2(currentPrice).toLocaleString("fa-IR");
+function renderTable(history) {
+  if (!history.length) { document.getElementById("table-wrap").innerHTML = '<div class="empty">📭 هنوز سیگنالی ثبت نشده</div>'; return; }
+  let html = `<table><thead><tr><th>زمان</th><th>استراتژی</th><th>نوع</th><th>کیفیت</th><th>نتیجه</th><th class="hide-mobile">ورود</th></tr></thead><tbody>`;
+  history.forEach((t, i) => {
+    const strategy = t.strategy || "RANGE";
+    let strategyHtml = '<span class="badge range">🔄 Range</span>';
+    if (strategy === "TREND") strategyHtml = '<span class="badge trend">📈 Trend</span>';
+    if (strategy === "CORRELATION") strategyHtml = '<span class="badge correlation">📊 Correlation</span>';
+    if (strategy === "ICHIMOKU") strategyHtml = '<span class="badge ichimoku">☁️ Ichimoku</span>';
+    let gradeHtml = "—";
+    if (t.quality && t.quality.grade) { const g = t.quality.grade; gradeHtml = `<span class="badge grade-${g}">${t.quality.score} ${g}</span>`; }
+    html += `<tr onclick="showDetails(${i})"><td>${formatTime(t.sent_at)}</td><td>${strategyHtml}</td><td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${t.side}</span></td><td>${gradeHtml}</td><td>${getResultBadge(t.result)}</td><td class="hide-mobile">${t.entry || '—'}</td></tr>`;
+  });
+  document.getElementById("table-wrap").innerHTML = html + "</tbody></table>";
+}
 
-    renderStats(currentHistory);
-    renderTable(currentHistory);
-    renderCharts(currentHistory);
-    
-    setStatus(`✅ متصل — ${currentHistory.length} سیگنال`);
-    checkForNewSignals(currentHistory);
-    countdown = 60;
-  } catch (e) {
-    console.error(e); setStatus("❌ خطا: " + e.message, true);
-  }
-}
-function checkForNewSignals(history) {
-  if (!history.length) return;
-  const latest = history[0];
-  if (latest.sent_at && latest.sent_at !== lastSeenSentAt) {
-    if (lastSeenSentAt) {
-      playSignalAlarm();
-      if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
-      if (Notification.permission === "granted") {
-        new Notification(`${latest.side === 'BUY' ? '🟢' : '🔴'} ${latest.side} — ${latest.strategy || 'RANGE'}`, { body: `${latest.entry} | کیفیت: ${latest.quality ? latest.quality.grade : '?'}` });
-      }
-    }
-    lastSeenSentAt = latest.sent_at;
-    localStorage.setItem("last_seen_sent_at", lastSeenSentAt);
-  }
-}
 function renderCharts(history) {
   const wins = history.filter(t => t.result === "WIN").length;
   const losses = history.filter(t => t.result === "LOSS").length;
   const opens = history.filter(t => !t.result).length;
-  
   if (resultChart) resultChart.destroy();
   const rc = document.getElementById("resultChart");
-  if (rc) {
-    resultChart = new Chart(rc, {
-      type: 'doughnut',
-      data: { labels: ['برد', 'باخت', 'در جریان'], datasets: [{ data: [wins, losses, opens], backgroundColor: ['#4ade80', '#f87171', '#ffd700'], borderWidth: 0 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#e8ecf5' } } } }
-    });
-  }
-  
+  if (rc) resultChart = new Chart(rc, { type: 'doughnut', data: { labels: ['برد', 'باخت', 'در جریان'], datasets: [{ data: [wins, losses, opens], backgroundColor: ['#4ade80', '#f87171', '#ffd700'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#e8ecf5' } } } } });
   if (tfChart) tfChart.destroy();
   const tc = document.getElementById("tfChart");
-  if (tc) {
-    const tf5 = history.filter(t => t.timeframe === "5min").length;
-    const tf15 = history.filter(t => t.timeframe === "15min").length;
-    tfChart = new Chart(tc, {
-      type: 'bar',
-      data: { labels: ['M5', 'M15'], datasets: [{ label: 'تعداد', data: [tf5, tf15], backgroundColor: ['#ffd700', '#4ade80'] }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#e8ecf5' }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#e8ecf5' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
-    });
-  }
-  
+  if (tc) { const tf5 = history.filter(t => t.timeframe === "5min").length; const tf15 = history.filter(t => t.timeframe === "15min").length; tfChart = new Chart(tc, { type: 'bar', data: { labels: ['M5', 'M15'], datasets: [{ label: 'تعداد', data: [tf5, tf15], backgroundColor: ['#ffd700', '#4ade80'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#e8ecf5' }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#e8ecf5' }, grid: { color: 'rgba(255,255,255,0.05)' } } } } }); }
   if (equityChart) equityChart.destroy();
   const ec = document.getElementById("equityChart");
-  if (ec) {
-    const sorted = [...history].filter(t => t.result).reverse();
-    let cum = 0;
-    const labels = ['شروع']; const data = [0];
-    sorted.forEach(t => { cum += (t.pnl || 0); labels.push(formatTime(t.sent_at)); data.push(round2(cum)); });
-    equityChart = new Chart(ec, {
-      type: 'line',
-      data: { labels: labels, datasets: [{ label: 'سرمایه', data: data, borderColor: '#ffd700', backgroundColor: 'rgba(255, 215, 0, 0.1)', fill: true, tension: 0.3, pointBackgroundColor: '#ffd700', pointRadius: 4 }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#8892b0', maxRotation: 45, minRotation: 0, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#8892b0' }, grid: { color: 'rgba(255,255,255,0.05)' } } } }
-    });
-  }
-  
+  if (ec) { const sorted = [...history].filter(t => t.result).reverse(); let cum = 0; const labels = ['شروع']; const data = [0]; sorted.forEach(t => { cum += (t.pnl || 0); labels.push(formatTime(t.sent_at)); data.push(round2(cum)); }); equityChart = new Chart(ec, { type: 'line', data: { labels: labels, datasets: [{ label: 'سرمایه', data: data, borderColor: '#ffd700', backgroundColor: 'rgba(255, 215, 0, 0.1)', fill: true, tension: 0.3, pointBackgroundColor: '#ffd700', pointRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#8892b0', maxRotation: 45, minRotation: 0, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } }, y: { ticks: { color: '#8892b0' }, grid: { color: 'rgba(255,255,255,0.05)' } } } } }); }
   const equityStatsEl = document.getElementById("equity-stats");
-  if (equityStatsEl) {
-    let peak = 0, maxDd = 0, cum = 0;
-    history.filter(t => t.result).reverse().forEach(t => { cum += (t.pnl || 0); peak = Math.max(peak, cum); maxDd = Math.max(maxDd, peak - cum); });
-    const totalPnl = round2(history.reduce((s, t) => s + (t.pnl || 0), 0));
-    equityStatsEl.innerHTML = `
-      <div class="equity-stat"><div class="label">💰 سود کل</div><div class="value ${totalPnl >= 0 ? 'pos' : 'neg'}">${totalPnl >= 0 ? '+' : ''}${totalPnl}</div></div>
-      <div class="equity-stat"><div class="label">📈 اوج سرمایه</div><div class="value">${round2(peak)}</div></div>
-      <div class="equity-stat"><div class="label">📉 Max Drawdown</div><div class="value neg">${round2(-maxDd)}</div></div>
-      <div class="equity-stat"><div class="label">🎯 معاملات</div><div class="value">${history.filter(t => t.result).length}</div></div>
-    `;
-  }
+  if (equityStatsEl) { let peak = 0, maxDd = 0, cum = 0; history.filter(t => t.result).reverse().forEach(t => { cum += (t.pnl || 0); peak = Math.max(peak, cum); maxDd = Math.max(maxDd, peak - cum); }); const totalPnl = round2(history.reduce((s, t) => s + (t.pnl || 0), 0)); equityStatsEl.innerHTML = `<div class="equity-stat"><div class="label">💰 سود کل</div><div class="value ${totalPnl >= 0 ? 'pos' : 'neg'}">${totalPnl >= 0 ? '+' : ''}${totalPnl}</div></div><div class="equity-stat"><div class="label">📈 اوج سرمایه</div><div class="value">${round2(peak)}</div></div><div class="equity-stat"><div class="label">📉 Max Drawdown</div><div class="value neg">${round2(-maxDd)}</div></div><div class="equity-stat"><div class="label">🎯 معاملات</div><div class="value">${history.filter(t => t.result).length}</div></div>`; }
 }
 
 function showDetails(index) {
@@ -478,23 +417,15 @@ function showDetails(index) {
   if (strategy === "TREND") strategyLabel = "📈 Trend (EMA+MACD)";
   if (strategy === "CORRELATION") strategyLabel = "📊 Correlation (DXY)";
   if (strategy === "ICHIMOKU") strategyLabel = "☁️ Ichimoku";
-  
   let qualityHtml = "";
-  if (t.quality) {
-    const q = t.quality;
-    const gradeEmoji = {A: "🏆", B: "✅", C: "⚠️", D: "🚫"}[q.grade] || "❔";
-    qualityHtml = `<div class="modal-section"><h4>⭐ کیفیت سیگنال</h4><div class="result-box ${q.grade === 'A' || q.grade === 'B' ? 'win' : 'open'}" style="font-size: 1.1rem; padding: 12px;">${gradeEmoji} امتیاز: ${q.score}/100 — گرید: ${q.grade}</div></div>`;
-  }
+  if (t.quality) { const q = t.quality; const gradeEmoji = {A: "🏆", B: "✅", C: "⚠️", D: "🚫"}[q.grade] || "❔"; qualityHtml = `<div class="modal-section"><h4>⭐ کیفیت سیگنال</h4><div class="result-box ${q.grade === 'A' || q.grade === 'B' ? 'win' : 'open'}" style="font-size: 1.1rem; padding: 12px;">${gradeEmoji} امتیاز: ${q.score}/100 — گرید: ${q.grade}</div></div>`; }
   const rr = t.rr ? ` (R:R 1:${t.rr})` : "";
   const pricesHtml = `<div class="modal-section"><h4>💰 قیمت‌ها${rr}</h4><div class="price-grid"><div class="price-item entry"><div class="label">ورود</div><div class="value">${t.entry || '—'}</div></div><div class="price-item sl"><div class="label">حد ضرر</div><div class="value">${t.sl || '—'}</div></div><div class="price-item tp"><div class="label">حد سود</div><div class="value">${t.tp || '—'}</div></div>${t.exit_price ? `<div class="price-item exit"><div class="label">خروج</div><div class="value">${t.exit_price}</div></div>` : ''}</div></div>`;
-  
   document.getElementById("modal-content").innerHTML = `<div class="modal-header"><div class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}" style="font-size: 1.2rem; margin-bottom: 8px;">${t.side} — ${t.timeframe || ''}</div><div class="badge ${strategy.toLowerCase()}" style="margin-bottom: 12px;">${strategyLabel}</div><h3>${t.result ? getResultBadge(t.result) : '⏳ در جریان'}</h3><div class="time">${formatTime(t.sent_at, true)}</div></div>${t.result ? `<div class="modal-section"><div class="result-box ${t.result.toLowerCase()}">${t.result === 'WIN' ? '🏆' : '❌'} ${t.result} ${t.pnl ? `(${t.pnl > 0 ? '+' : ''}${t.pnl})` : ''}</div></div>` : ''}${qualityHtml}${pricesHtml}<div class="modal-section"><h4>📝 دلیل سیگنال</h4><div style="color: #8892b0; font-size: 0.9rem; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px;">${t.reason || '—'}</div></div>`;
   document.getElementById("modal").classList.add("active");
 }
 
-function closeModal(e) {
-  if (e.target.id === "modal" || e.target.className === "modal-close") document.getElementById("modal").classList.remove("active");
-}
+function closeModal(e) { if (e.target.id === "modal" || e.target.className === "modal-close") document.getElementById("modal").classList.remove("active"); }
 
 function tick() {
   document.getElementById("live-clock").textContent = new Date().toLocaleTimeString("fa-IR");
