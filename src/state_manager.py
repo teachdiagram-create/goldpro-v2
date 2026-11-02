@@ -3,6 +3,7 @@ import requests
 from datetime import datetime, timedelta
 from src.config import GH_GIST_ID, GH_PAT, SIGNAL_COOLDOWN_MIN
 
+
 GIST_API = f"https://api.github.com/gists/{GH_GIST_ID}"
 MAX_HISTORY = 200
 
@@ -15,8 +16,20 @@ def _headers():
     }
 
 
+def _symbol_of(signal_or_trade: dict) -> str:
+    return signal_or_trade.get("symbol", "XAU/USD")
+
+
+def _key(signal_or_trade: dict) -> str:
+    """کلید یکتا برای cooldown: SYMBOL:TF:SIDE:STRATEGY"""
+    symbol = _symbol_of(signal_or_trade)
+    tf = signal_or_trade.get("timeframe", "5min")
+    side = signal_or_trade.get("side")
+    strategy = signal_or_trade.get("strategy", "RANGE")
+    return f"{symbol}:{tf}:{side}:{strategy}"
+
+
 def load_state() -> dict:
-    """خواندن state از Gist"""
     try:
         r = requests.get(GIST_API, headers=_headers(), timeout=20)
         r.raise_for_status()
@@ -34,14 +47,12 @@ def load_state() -> dict:
 
         state.setdefault("history", [])
         return state
-
     except Exception as e:
         print(f"[!] load_state error: {e}")
         return {"last_signals": {}, "history": []}
 
 
 def save_state(state: dict) -> bool:
-    """ذخیره state در Gist"""
     try:
         payload = {
             "files": {
@@ -59,11 +70,9 @@ def save_state(state: dict) -> bool:
 
 
 def should_send(signal: dict, state: dict) -> bool:
-    """چک کن که آیا این سیگنال رو باید بفرستیم یا نه"""
+    key = _key(signal)
     tf = signal.get("timeframe", "5min")
     strategy = signal.get("strategy", "RANGE")
-    # کلید رو با استراتژی جدا می‌کنیم تا کول‌داون هر استراتژی مستقل باشه
-    key = f"{tf}:{signal['side']}:{strategy}"
 
     last = state.get("last_signals", {}).get(key)
     if not last:
@@ -76,21 +85,22 @@ def should_send(signal: dict, state: dict) -> bool:
         return True
 
     remaining = SIGNAL_COOLDOWN_MIN - int(elapsed.total_seconds() / 60)
-    print(f"⏸ Cooldown {strategy} {tf} {signal['side']} — {remaining} min remaining")
+    print(f"⏸ Cooldown {strategy} {tf} — {remaining} min remaining")
     return False
 
 
 def mark_sent(signal: dict, state: dict) -> dict:
-    """ثبت سیگنال ارسال‌شده در state + history"""
+    key = _key(signal)
+    symbol = _symbol_of(signal)
     tf = signal.get("timeframe", "5min")
     strategy = signal.get("strategy", "RANGE")
-    key = f"{tf}:{signal['side']}:{strategy}"
     now = datetime.utcnow().isoformat()
 
     state.setdefault("last_signals", {})
     state.setdefault("history", [])
 
     state["last_signals"][key] = {
+        "symbol": symbol,
         "side": signal["side"],
         "timeframe": tf,
         "strategy": strategy,
@@ -98,20 +108,24 @@ def mark_sent(signal: dict, state: dict) -> dict:
         "entry": signal["entry"],
     }
 
-    # 🚨 اینجا استراتژی و کیفیت هم به تاریخچه اضافه می‌شن
+    # ثبت کامل ترید در تاریخچه
     new_trade = {
+        "signal_id": signal.get("signal_id", "N/A"),   # ← شناسه منحصر به فرد
+        "symbol": symbol,
         "side": signal["side"],
         "timeframe": tf,
-        "strategy": strategy,               # ← اضافه شد
-        "quality": signal.get("quality"),   # ← اضافه شد
+        "strategy": strategy,
+        "quality": signal.get("quality"),
         "entry": signal["entry"],
         "sl": signal.get("sl"),
         "tp": signal.get("tp"),
+        "sl_distance": signal.get("sl_distance"),
+        "tp_distance": signal.get("tp_distance"),
+        "rr": signal.get("rr"),
         "rsi": signal.get("rsi"),
         "adx": signal.get("adx"),
         "atr": signal.get("atr"),
         "reason": signal.get("reason"),
-        "rr": signal.get("rr"),
         "sent_at": now,
         "result": None,
         "exit_price": None,
