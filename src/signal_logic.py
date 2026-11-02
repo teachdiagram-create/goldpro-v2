@@ -82,28 +82,32 @@ def _build_reason(setup: dict, side: str, strategy: str) -> str:
 
 
 def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
-    # آماده‌سازی M5
     closed_m5 = df_m5.iloc[:-1]
     current_m5 = closed_m5.iloc[-1]
+    rsi_series_m5 = closed_m5["rsi"]
 
     price = float(current_m5["close"])
     atr_ = float(current_m5["atr"])
     adx_ = float(current_m5["adx"])
     rsi_ = float(current_m5["rsi"])
-
+    
     dt_raw = current_m5["datetime"]
     if isinstance(dt_raw, str):
         dt_obj = datetime.fromisoformat(dt_raw.replace(" ", "T"))
     else:
         dt_obj = dt_raw
+    
     if dt_obj.tzinfo is None:
         dt_obj = dt_obj.replace(tzinfo=timezone.utc)
-    
+        
     closed_time = dt_obj + timedelta(minutes=5)
     dt_str = closed_time.isoformat()
 
     if _is_market_closed_or_opening(dt_str):
+        print(f"🚫 Market closed or opening (high spread) - {dt_str}")
         return None
+
+    timestamp_id = datetime.now().strftime("%H%M%S")
 
     base = {
         "timeframe": "5min",
@@ -117,19 +121,39 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     if df_dxy_m5 is not None and len(df_dxy_m5) > 20 and df_m15 is not None:
         hour_ok, _ = check_trading_hours(dt_str)
         news_blocked, _ = check_news_blackout(dt_str)
+        
         if hour_ok and not news_blocked:
             trend = detect_trend_m15(df_m15.iloc[:-1])
+            
             if trend in ("BUY", "SELL"):
                 corr_ok, corr_val = check_correlation(df_m5, df_dxy_m5)
                 trigger_ok = detect_trigger_m5(closed_m5, trend)
+                
                 if corr_ok and trigger_ok:
-                    sl_dist = min(max(SL_CORR_MULT * atr_, 3.0), MAX_SL_USD)
-                    tp_dist = min(max(TP_CORR_MULT * atr_, 4.5), MAX_SL_USD * 1.5)
-                    sl = round(price + sl_dist if trend == "SELL" else price - sl_dist, 2)
-                    tp = round(price - tp_dist if trend == "SELL" else price + tp_dist, 2)
+                    sl_dist = max(SL_CORR_MULT * atr_, 3.0)
+                    tp_dist = max(TP_CORR_MULT * atr_, 4.5)
+                    sl_dist = min(sl_dist, MAX_SL_USD)
+                    tp_dist = min(tp_dist, MAX_SL_USD * 1.5)
+                    
+                    if trend == "SELL":
+                        sl = round(price + sl_dist, 2)
+                        tp = round(price - tp_dist, 2)
+                    else:
+                        sl = round(price - sl_dist, 2)
+                        tp = round(price + tp_dist, 2)
+                    
+                    rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
+                    
                     return {
-                        **base, "side": trend, "entry": round(price, 2),
-                        "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": round(tp_dist/sl_dist, 2),
+                        **base,
+                        "signal_id": f"C-{timestamp_id}", # ✅ آیدی اختصاصی Correlation
+                        "side": trend,
+                        "entry": round(price, 2),
+                        "sl": sl,
+                        "tp": tp,
+                        "sl_distance": round(sl_dist, 2),
+                        "tp_distance": round(tp_dist, 2),
+                        "rr": rr,
                         "strategy": "CORRELATION",
                         "quality": _compute_quality(adx_, atr_, rsi_, trend, "CORRELATION"),
                         "reason": f"DXY corr={corr_val} + M15 {trend} + M5 trigger",
@@ -137,12 +161,14 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                     }
 
     # ─── استراتژی ۲: RANGE ───
-    sell_setup = detect_double_top_sell(closed_m5["rsi"])
+    sell_setup = detect_double_top_sell(rsi_series_m5)
     if sell_setup:
         sl, tp, sd, td, rr = compute_sl_tp("SELL", price, atr_)
         if sl is not None:
             return {
-                **base, "side": "SELL", "entry": round(price, 2),
+                **base, 
+                "signal_id": f"R-{timestamp_id}", # ✅ آیدی اختصاصی Range
+                "side": "SELL", "entry": round(price, 2),
                 "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
                 "strategy": "RANGE",
                 "quality": _compute_quality(adx_, atr_, rsi_, "SELL", "RANGE"),
@@ -150,12 +176,14 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                 "valid": True,
             }
 
-    buy_setup = detect_double_bottom_buy(closed_m5["rsi"])
+    buy_setup = detect_double_bottom_buy(rsi_series_m5)
     if buy_setup:
         sl, tp, sd, td, rr = compute_sl_tp("BUY", price, atr_)
         if sl is not None:
             return {
-                **base, "side": "BUY", "entry": round(price, 2),
+                **base, 
+                "signal_id": f"R-{timestamp_id}", # ✅ آیدی اختصاصی Range
+                "side": "BUY", "entry": round(price, 2),
                 "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
                 "strategy": "RANGE",
                 "quality": _compute_quality(adx_, atr_, rsi_, "BUY", "RANGE"),
@@ -170,7 +198,9 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         sl, tp, sd, td, rr = compute_sl_tp(side, price, atr_)
         if sl is not None:
             return {
-                **base, "side": side, "entry": round(price, 2),
+                **base, 
+                "signal_id": f"T-{timestamp_id}", # ✅ آیدی اختصاصی Trend
+                "side": side, "entry": round(price, 2),
                 "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
                 "strategy": "TREND",
                 "quality": _compute_quality(adx_, atr_, rsi_, side, "TREND"),
@@ -179,16 +209,33 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
             }
 
     # ─── استراتژی ۴: ICHIMOKU ───
-    ichi_signal = detect_ichimoku_signal(df_m5) # نکته: کل df_m5 رو پاس می‌دیم
+    ichi_signal = detect_ichimoku_signal(df_m5)
     if ichi_signal:
         side = ichi_signal["direction"]
-        sl_dist = min(max(SL_ICHI_MULT * atr_, MIN_SL_USD), MAX_SL_USD)
-        tp_dist = min(max(TP_ICHI_MULT * atr_, MIN_TP_USD), MAX_SL_USD * 1.5)
-        sl = round(price + sl_dist if side == "SELL" else price - sl_dist, 2)
-        tp = round(price - tp_dist if side == "SELL" else price + tp_dist, 2)
+        sl_dist = max(SL_ICHI_MULT * atr_, MIN_SL_USD)
+        tp_dist = max(TP_ICHI_MULT * atr_, MIN_TP_USD)
+        sl_dist = min(sl_dist, MAX_SL_USD)
+        tp_dist = min(tp_dist, MAX_SL_USD * 1.5)
+        
+        if side == "SELL":
+            sl = round(price + sl_dist, 2)
+            tp = round(price - tp_dist, 2)
+        else:
+            sl = round(price - sl_dist, 2)
+            tp = round(price + tp_dist, 2)
+            
+        rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
+
         return {
-            **base, "side": side, "entry": round(price, 2),
-            "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": round(tp_dist/sl_dist, 2),
+            **base,
+            "signal_id": f"I-{timestamp_id}", # ✅ آیدی اختصاصی Ichimoku
+            "side": side,
+            "entry": round(price, 2),
+            "sl": sl,
+            "tp": tp,
+            "sl_distance": round(sl_dist, 2),
+            "tp_distance": round(tp_dist, 2),
+            "rr": rr,
             "strategy": "ICHIMOKU",
             "quality": _compute_quality(adx_, atr_, rsi_, side, "ICHIMOKU"),
             "reason": _build_reason(ichi_signal, side, "ICHIMOKU"),
