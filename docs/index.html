@@ -82,7 +82,6 @@
   }
   #live-clock { color: #ffd700; font-weight: 700; }
   #live-countdown { color: #4ade80; font-weight: 700; min-width: 22px; display: inline-block; text-align: center; }
-
   .stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -101,7 +100,9 @@
   .stat-value.pnl-neg { color: #f87171; }
   .stat-value.small { font-size: 1.3rem; }
   .stat-label { font-size: 0.8rem; color: #8892b0; }
-
+</style>
+<style>
+  /* آمار مجزای استراتژی‌ها */
   .strategy-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -120,7 +121,7 @@
   .strat-title { font-size: 0.9rem; font-weight: 800; margin-bottom: 8px; }
   .strat-wr { font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; }
   .strat-detail { font-size: 0.75rem; color: #8892b0; }
-
+  
   .card {
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 215, 0, 0.15);
@@ -131,34 +132,55 @@
   .chart-box { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 215, 0, 0.15); border-radius: 16px; padding: 20px; }
   .chart-box h3 { font-size: 1rem; color: #b8c1d9; margin-bottom: 16px; text-align: center; }
   .chart-wrap { position: relative; height: 220px; }
-
+  
   table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
   th, td { padding: 12px 8px; text-align: right; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
   th { color: #8892b0; font-weight: 600; font-size: 0.75rem; }
   tbody tr { cursor: pointer; transition: background 0.15s; }
   tbody tr:hover { background: rgba(255, 215, 0, 0.06); }
-
+  
   .badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
   .badge.buy { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); }
   .badge.sell { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); }
   .badge.win { background: rgba(74, 222, 128, 0.2); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
   .badge.loss { background: rgba(248, 113, 113, 0.2); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.4); }
   .badge.open { background: rgba(255, 215, 0, 0.15); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.3); }
+</style>
+</head>
+<body>
 
+<div class="container">
+  <header>
+    <h1>🥇 GoldPro V2</h1>
+    <div class="subtitle">داشبورد سیگنال‌های معاملاتی XAU/USD</div>
+    <div id="status" class="status-bar">⏳ در حال بارگذاری...</div>
+  </header>
+
+  <div class="price-card">
+    <div class="price-label">💰 قیمت لحظه‌ای طلا (XAU/USD)</div>
+    <div class="price-value" id="live-price">—</div>
+  </div>
+
+  <div class="live-bar">
+    <div class="live-item"><span class="live-dot"></span><span>زنده</span></div>
+    <div class="live-item">🕐 <span id="live-clock">--:--:--</span></div>
+    <div class="live-item">🔄 بروزرسانی در <span id="live-countdown">60</span> ثانیه</div>
+  </div>
+<style>
   .badge.range { background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.3); }
   .badge.trend { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
   .badge.correlation { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
   .badge.ichimoku { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); }
-
+  
   .badge.grade-A { background: rgba(74, 222, 128, 0.2); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
   .badge.grade-B { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
   .badge.grade-C { background: rgba(255, 215, 0, 0.2); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.4); }
   .badge.grade-D { background: rgba(248, 113, 113, 0.2); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.4); }
-
+  
   .empty { text-align: center; padding: 40px 20px; color: #8892b0; font-size: 0.95rem; }
   footer { text-align: center; padding: 30px 0; color: #4a5578; font-size: 0.85rem; }
   .refresh-btn { background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); color: #ffd700; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 0.9rem; }
-
+  
   .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.75); backdrop-filter: blur(6px); display: none; justify-content: center; align-items: center; z-index: 9999; padding: 20px; }
   .modal-overlay.active { display: flex; }
   .modal { background: linear-gradient(135deg, #141a2e 0%, #1a1f35 100%); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 20px; max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 28px; position: relative; }
@@ -170,16 +192,16 @@
   .result-box.win { background: rgba(74, 222, 128, 0.15); color: #4ade80; border: 2px solid rgba(74, 222, 128, 0.4); }
   .result-box.loss { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 2px solid rgba(248, 113, 113, 0.4); }
   .result-box.open { background: rgba(255, 215, 0, 0.1); color: #ffd700; border: 2px solid rgba(255, 215, 0, 0.3); }
-
+  
   .price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
   .price-item { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 14px 10px; text-align: center; }
   .price-item .label { font-size: 0.75rem; color: #8892b0; margin-bottom: 6px; }
   .price-item .value { font-size: 1.1rem; font-weight: 800; }
-
+  
   #button-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 9999; padding: 8px; background: rgba(10, 14, 26, 0.85); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 999px; }
   #notify-btn { background: linear-gradient(135deg, #ffd700, #f5b041); color: #0a0e1a; border: none; padding: 8px 14px; border-radius: 999px; font-family: Vazirmatn, sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
   #test-sound-btn { background: rgba(255, 215, 0, 0.15); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.4); padding: 8px 14px; border-radius: 999px; font-family: Vazirmatn, sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
-
+  
   .equity-stats {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -199,7 +221,7 @@
   .equity-stat .value { font-size: 1.1rem; font-weight: 800; color: #ffd700; }
   .equity-stat .value.pos { color: #4ade80; }
   .equity-stat .value.neg { color: #f87171; }
-
+  
   @media (max-width: 600px) {
     h1 { font-size: 1.8rem; }
     .stat-value { font-size: 1.4rem; }
@@ -213,6 +235,7 @@
 </style>
 </head>
 <body>
+
 <div class="container">
   <header>
     <h1>🥇 GoldPro V2</h1>
@@ -231,65 +254,68 @@
     <div class="live-item">🔄 بروزرسانی در <span id="live-countdown">60</span> ثانیه</div>
   </div>
 
+  <!-- آمار مجزای استراتژی‌ها -->
   <div class="strategy-stats" id="strategy-stats"></div>
-
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-value" id="total">-</div>
-      <div class="stat-label">کل سیگنال‌ها</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value win" id="wins">-</div>
-      <div class="stat-label">🏆 برد (WIN)</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value loss" id="losses">-</div>
-      <div class="stat-label">❌ باخت (LOSS)</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value" id="open-count">-</div>
-      <div class="stat-label">⏳ در جریان</div>
-    </div>
+<!-- آمار کلی -->
+<div class="stats">
+  <div class="stat">
+    <div class="stat-value" id="total">-</div>
+    <div class="stat-label">کل سیگنال‌ها</div>
   </div>
-
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-value small" id="win-rate">-</div>
-      <div class="stat-label">💯 نرخ برد</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value small" id="total-pnl">-</div>
-      <div class="stat-label">💰 سود کل</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value small" id="profit-factor">-</div>
-      <div class="stat-label">📊 Profit Factor</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value small" id="last-time">-</div>
-      <div class="stat-label">آخرین سیگنال</div>
-    </div>
+  <div class="stat">
+    <div class="stat-value win" id="wins">-</div>
+    <div class="stat-label">🏆 برد (WIN)</div>
   </div>
-
-  <div class="charts">
-    <div class="chart-box">
-      <h3>🏆 برد vs باخت</h3>
-      <div class="chart-wrap"><canvas id="resultChart"></canvas></div>
-    </div>
-    <div class="chart-box">
-      <h3>⏱️ توزیع تایم‌فریم</h3>
-      <div class="chart-wrap"><canvas id="tfChart"></canvas></div>
-    </div>
+  <div class="stat">
+    <div class="stat-value loss" id="losses">-</div>
+    <div class="stat-label">❌ باخت (LOSS)</div>
   </div>
-
-  <div class="card">
-    <h2>📈 روند رشد سرمایه (Equity Curve)</h2>
-    <div class="chart-wrap" style="height: 300px;">
-      <canvas id="equityChart"></canvas>
-    </div>
-    <div class="equity-stats" id="equity-stats"></div>
+  <div class="stat">
+    <div class="stat-value" id="open-count">-</div>
+    <div class="stat-label">⏳ در جریان</div>
   </div>
+</div>
 
+<div class="stats">
+  <div class="stat">
+    <div class="stat-value small" id="win-rate">-</div>
+    <div class="stat-label">💯 نرخ برد</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value small" id="total-pnl">-</div>
+    <div class="stat-label">💰 سود کل</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value small" id="profit-factor">-</div>
+    <div class="stat-label">📊 Profit Factor</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value small" id="last-time">-</div>
+    <div class="stat-label">آخرین سیگنال</div>
+  </div>
+</div>
+
+<!-- نمودارها -->
+<div class="charts">
+  <div class="chart-box">
+    <h3>🏆 برد vs باخت</h3>
+    <div class="chart-wrap"><canvas id="resultChart"></canvas></div>
+  </div>
+  <div class="chart-box">
+    <h3>⏱️ توزیع تایم‌فریم</h3>
+    <div class="chart-wrap"><canvas id="tfChart"></canvas></div>
+  </div>
+</div>
+
+<!-- منحنی سرمایه -->
+<div class="card">
+  <h2>📈 روند رشد سرمایه (Equity Curve)</h2>
+  <div class="chart-wrap" style="height: 300px;">
+    <canvas id="equityChart"></canvas>
+  </div>
+  <div class="equity-stats" id="equity-stats"></div>
+</div>
+  <!-- جدول سیگنال‌ها -->
   <div class="card">
     <h2 style="display:flex; justify-content:space-between; align-items:center;">
       📋 سیگنال‌های اخیر
@@ -315,50 +341,27 @@
   </div>
 </div>
 <script>
-// =====================================================
-// GoldPro V2 — Dashboard JS
-// =====================================================
-
-// ─── Config ───
 const GIST_ID = "da4184ca28cfa99438719f3e331c08b3";
 const GIST_API = "https://api.github.com/gists/" + GIST_ID;
 
-// ─── Global State ───
 let resultChart = null;
 let tfChart = null;
 let equityChart = null;
 let currentHistory = [];
 let countdown = 60;
 let lastSeenSentAt = localStorage.getItem("last_seen_sent_at") || "";
-let audioContext = null;
-
-// =====================================================
-// Helpers
-// =====================================================
-function round2(n) {
-  if (n === null || n === undefined || isNaN(n)) return 0;
-  return Math.round(n * 100) / 100;
-}
 
 function formatTime(iso, full = false) {
   if (!iso) return "—";
-  const safe = (iso.endsWith("Z") || iso.includes("+")) ? iso : iso + "Z";
-  const d = new Date(safe);
-  if (isNaN(d.getTime())) return "—";
+  const d = new Date(iso + "Z");
   if (full) {
-    return d.toLocaleString("fa-IR", {
-      weekday: "long", year: "numeric", month: "long",
-      day: "numeric", hour: "2-digit", minute: "2-digit"
-    });
+    return d.toLocaleString("fa-IR", { weekday: "long", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
-  return d.toLocaleString("fa-IR", {
-    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
-  });
+  return d.toLocaleString("fa-IR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function setStatus(text, isError = false) {
   const el = document.getElementById("status");
-  if (!el) return;
   el.textContent = text;
   el.className = "status-bar" + (isError ? " error" : "");
 }
@@ -369,196 +372,282 @@ function getResultBadge(r) {
   return '<span class="badge open">⏳ OPEN</span>';
 }
 
-function normalizeStrat(s) {
-  if (!s) return "RANGE";
-  const k = String(s).toUpperCase().trim();
-  if (k.includes("TREND") || k.includes("EMA") || k.includes("MACD")) return "TREND";
-  if (k.includes("CORR") || k.includes("DXY")) return "CORRELATION";
-  if (k.includes("ICHI") || k.includes("KUMO")) return "ICHIMOKU";
-  if (k.includes("RANGE") || k.includes("RSI")) return "RANGE";
-  return "RANGE";
-}
+function round2(n) { return Math.round(n * 100) / 100; }
 
-function stratClass(strat) {
-  const map = { RANGE: "range", TREND: "trend", CORRELATION: "correlation", ICHIMOKU: "ichimoku" };
-  return map[strat] || "range";
-}
-
-// =====================================================
-// Audio & Notifications
-// =====================================================
+let audioContext = null;
 function initAudioContext() {
-  if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioContext.state === "suspended") audioContext.resume();
+  if (!audioContext) { audioContext = new (window.AudioContext || window.webkitAudioContext)(); }
+  if (audioContext.state === 'suspended') audioContext.resume();
   return audioContext;
 }
 
 function playSignalAlarm() {
   try {
-    const ctx = initAudioContext();
-    const now = ctx.currentTime;
+    const ctx = initAudioContext(); const now = ctx.currentTime;
     for (let round = 0; round < 3; round++) {
       const offset = round * 0.8;
-      const beeps = [
-        { start: offset,        duration: 0.15, freq: 880 },
-        { start: offset + 0.2,  duration: 0.15, freq: 1100 },
-        { start: offset + 0.4,  duration: 0.25, freq: 1320 }
-      ];
+      const beeps = [{ start: offset, duration: 0.15, freq: 880 }, { start: offset + 0.2, duration: 0.15, freq: 1100 }, { start: offset + 0.4, duration: 0.25, freq: 1320 }];
       beeps.forEach(beep => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.frequency.value = beep.freq;
-        osc.type = "sine";
-        gain.gain.setValueAtTime(0, now + beep.start);
-        gain.gain.linearRampToValueAtTime(1.0, now + beep.start + 0.02);
-        gain.gain.linearRampToValueAtTime(0, now + beep.start + beep.duration);
-        osc.start(now + beep.start);
-        osc.stop(now + beep.start + beep.duration);
+        const osc = ctx.createOscillator(); const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination); osc.frequency.value = beep.freq; osc.type = 'sine';
+        gain.gain.setValueAtTime(0, now + beep.start); gain.gain.linearRampToValueAtTime(1.0, now + beep.start + 0.02); gain.gain.linearRampToValueAtTime(0, now + beep.start + beep.duration);
+        osc.start(now + beep.start); osc.stop(now + beep.start + beep.duration);
       });
     }
-  } catch (e) {
-    console.log("Sound failed:", e);
-  }
+  } catch (e) { console.log('Sound failed:', e); }
 }
 
-function testSoundAndVibrate() {
-  initAudioContext();
-  playSignalAlarm();
-  if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]);
-}
+function testSoundAndVibrate() { initAudioContext(); playSignalAlarm(); if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]); }
 
 async function initNotification() {
-  if (!("Notification" in window)) {
-    alert("مرورگر شما از نوتیفیکیشن پشتیبانی نمی‌کند");
-    return;
-  }
+  if (!("Notification" in window)) { alert("مرورگر شما از نوتیفیکیشن پشتیبانی نمی‌کنه"); return; }
   const perm = await Notification.requestPermission();
   if (perm === "granted") {
-    const btn = document.getElementById("notify-btn");
-    btn.textContent = "🔔 نوتیفیکیشن فعال";
-    btn.style.background = "linear-gradient(135deg, #4ade80, #22c55e)";
+    document.getElementById("notify-btn").textContent = "🔔 نوتیفیکیشن فعال";
+    document.getElementById("notify-btn").style.background = "linear-gradient(135deg, #4ade80, #22c55e)";
     new Notification("✅ GoldPro", { body: "نوتیفیکیشن فعال شد." });
     localStorage.setItem("notify_enabled", "1");
   }
 }
 
-// =====================================================
-// Data Loading
-// =====================================================
 async function loadData() {
   setStatus("⏳ در حال بارگذاری...");
   try {
-    const res = await fetch(GIST_API + "?t=" + Date.now());
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
+    const r = await fetch(GIST_API + "?t=" + Date.now());
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json();
     const files = data.files || {};
     const file = files["goldpro-state.json"] || Object.values(files)[0];
     if (!file) throw new Error("فایل state پیدا نشد");
-
+    
     let state = {};
-    try {
-      state = JSON.parse(file.content || "{}");
-    } catch {
-      throw new Error("JSON state خراب است");
-    }
+    try { state = JSON.parse(file.content || "{}"); } catch (e) { throw new Error("JSON state خرابه"); }
 
     currentHistory = state.history || [];
-
-    if (state.current_price) {
-      const el = document.getElementById("live-price");
-      if (el) el.textContent = "$" + round2(state.current_price).toLocaleString("en-US");
-    }
+    const currentPrice = state.current_price;
+    
+    if (currentPrice) document.getElementById("live-price").textContent = round2(currentPrice).toLocaleString("fa-IR");
 
     renderStats(currentHistory);
     renderTable(currentHistory);
     renderCharts(currentHistory);
-
+    
     setStatus(`✅ متصل — ${currentHistory.length} سیگنال`);
     checkForNewSignals(currentHistory);
     countdown = 60;
   } catch (e) {
-    console.error(e);
-    setStatus("❌ خطا: " + e.message, true);
+    console.error(e); setStatus("❌ خطا: " + e.message, true);
   }
 }
+    const wrColor = sWr >= 50 ? "color:#4ade80;" : "color:#f87171;";
+    const pnlColor = sPnl >= 0 ? "color:#4ade80;" : "color:#f87171;";
+    stratHtml += `
+      <div class="strat-card ${classes[strat]}">
+        <div class="strat-title">${names[strat]}</div>
+        <div class="strat-wr" style="${wrColor}">${sWr}%</div>
+        <div class="strat-detail">${sWins}W / ${sLosses}L | در جریان: ${sOpens}<br><span style="${pnlColor}">PnL: ${sPnl >= 0 ? '+' : ''}${sPnl}</span></div>
+      </div>`;
+  });
+  document.getElementById("strategy-stats").innerHTML = stratHtml;
+}
+function renderTable(history) {
+  if (!history.length) {
+    document.getElementById("table-wrap").innerHTML = '<div class="empty">📭 هنوز سیگنالی ثبت نشده</div>';
+    return;
+  }
+  let html = `<table><thead><tr><th>زمان</th><th>استراتژی</th><th>نوع</th><th>کیفیت</th><th>نتیجه</th><th class="hide-mobile">ورود</th></tr></thead><tbody>`;
 
-function checkForNewSignals(history) {
-  if (!history.length) return;
-  const latest = history[0];
-  if (latest.sent_at && latest.sent_at !== lastSeenSentAt) {
-    if (lastSeenSentAt) {
-      playSignalAlarm();
-      if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
-      if (Notification.permission === "granted") {
-        new Notification(
-          `${latest.side === "BUY" ? "🟢" : "🔴"} ${latest.side} — ${latest.strategy || "RANGE"}`,
-          { body: `${latest.entry} | کیفیت: ${latest.quality ? latest.quality.grade : "?"}` }
-        );
-      }
+  history.forEach((t, i) => {
+    const strategy = t.strategy || "RANGE";
+    let strategyHtml = '<span class="badge range">🔄 Range</span>';
+    if (strategy === "TREND") strategyHtml = '<span class="badge trend">📈 Trend</span>';
+    if (strategy === "CORRELATION") strategyHtml = '<span class="badge correlation">📊 Correlation</span>';
+    if (strategy === "ICHIMOKU") strategyHtml = '<span class="badge ichimoku">☁️ Ichimoku</span>';
+
+    let gradeHtml = "—";
+    if (t.quality && t.quality.grade) {
+      const g = t.quality.grade;
+      gradeHtml = `<span class="badge grade-${g}">${t.quality.score} ${g}</span>`;
     }
-    lastSeenSentAt = latest.sent_at;
-    localStorage.setItem("last_seen_sent_at", lastSeenSentAt);
-  }
-}
 
-// =====================================================
-// Stats
-// =====================================================
-function renderStats(history) {
-  const total = history.length;
+    html += `
+      <tr onclick="showDetails(${i})">
+        <td>${formatTime(t.sent_at)}</td>
+        <td>${strategyHtml}</td>
+        <td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${t.side}</span></td>
+        <td>${gradeHtml}</td>
+        <td>${getResultBadge(t.result)}</td>
+        <td class="hide-mobile">${t.entry || '—'}</td>
+      </tr>`;
+  });
+  document.getElementById("table-wrap").innerHTML = html + "</tbody></table>";
+}
+function renderCharts(history) {
   const wins = history.filter(t => t.result === "WIN").length;
   const losses = history.filter(t => t.result === "LOSS").length;
   const opens = history.filter(t => !t.result).length;
-  const closed = wins + losses;
-  const winRate = closed > 0 ? round2((wins / closed) * 100) : 0;
-  const pnl = round2(history.reduce((s, t) => s + (t.pnl || 0), 0));
+  
+  if (resultChart) resultChart.destroy();
+  const rc = document.getElementById("resultChart");
+  if (rc) {
+    resultChart = new Chart(rc, {
+      type: 'doughnut',
+      data: {
+        labels: ['برد', 'باخت', 'در جریان'],
+        datasets: [{ data: [wins, losses, opens], backgroundColor: ['#4ade80', '#f87171', '#ffd700'], borderWidth: 0 }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#e8ecf5' } } } }
+    });
+  }
+  
+  if (tfChart) tfChart.destroy();
+  const tc = document.getElementById("tfChart");
+  if (tc) {
+    const tf5 = history.filter(t => t.timeframe === "5min").length;
+    const tf15 = history.filter(t => t.timeframe === "15min").length;
+    tfChart = new Chart(tc, {
+      type: 'bar',
+      data: { labels: ['M5', 'M15'], datasets: [{ label: 'تعداد', data: [tf5, tf15], backgroundColor: ['#ffd700', '#4ade80'] }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#e8ecf5' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { color: '#e8ecf5' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
+  }
+  if (equityChart) equityChart.destroy();
+  const ec = document.getElementById("equityChart");
+  if (ec) {
+    const sorted = [...history].filter(t => t.result).reverse();
+    let cum = 0;
+    const labels = ['شروع'];
+    const data = [0];
+    sorted.forEach(t => {
+      cum += (t.pnl || 0);
+      labels.push(formatTime(t.sent_at));
+      data.push(round2(cum));
+    });
+    
+    equityChart = new Chart(ec, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{ label: 'سرمایه', data: data, borderColor: '#ffd700', backgroundColor: 'rgba(255, 215, 0, 0.1)', fill: true, tension: 0.3, pointBackgroundColor: '#ffd700', pointRadius: 4 }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#8892b0', maxRotation: 45, minRotation: 0, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { ticks: { color: '#8892b0' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
+  }
+  
+  const equityStatsEl = document.getElementById("equity-stats");
+  if (equityStatsEl) {
+    let peak = 0, maxDd = 0, cum = 0;
+    history.filter(t => t.result).reverse().forEach(t => {
+      cum += (t.pnl || 0);
+      peak = Math.max(peak, cum);
+      maxDd = Math.max(maxDd, peak - cum);
+    });
+    
+    const totalPnl = round2(history.reduce((s, t) => s + (t.pnl || 0), 0));
+    
+    equityStatsEl.innerHTML = `
+      <div class="equity-stat"><div class="label">💰 سود کل</div><div class="value ${totalPnl >= 0 ? 'pos' : 'neg'}">${totalPnl >= 0 ? '+' : ''}${totalPnl}</div></div>
+      <div class="equity-stat"><div class="label">📈 اوج سرمایه</div><div class="value">${round2(peak)}</div></div>
+      <div class="equity-stat"><div class="label">📉 Max Drawdown</div><div class="value neg">${round2(-maxDd)}</div></div>
+      <div class="equity-stat"><div class="label">🎯 معاملات</div><div class="value">${history.filter(t => t.result).length}</div></div>
+    `;
+  }
+}
 
-  let totalWin = 0, totalLoss = 0;
-  history.forEach(t => {
-    if (t.result === "WIN" && t.pnl) totalWin += t.pnl;
-    if (t.result === "LOSS" && t.pnl) totalLoss += Math.abs(t.pnl);
-  });
-  const pf = totalLoss > 0 ? round2(totalWin / totalLoss) : 0;
+function showDetails(index) {
+  const t = currentHistory[index];
+  if (!t) return;
 
-  document.getElementById("total").textContent = total;
-  document.getElementById("wins").textContent = wins;
-  document.getElementById("losses").textContent = losses;
-  document.getElementById("open-count").textContent = opens;
-  document.getElementById("win-rate").textContent = winRate + "%";
-
-  const pnlEl = document.getElementById("total-pnl");
-  pnlEl.textContent = (pnl >= 0 ? "+" : "") + pnl + "$";
-  pnlEl.className = "stat-value small " + (pnl >= 0 ? "pnl-pos" : "pnl-neg");
-
-  document.getElementById("profit-factor").textContent = pf;
-  if (history[0]) {
-    document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
+  const strategy = t.strategy || "RANGE";
+  let strategyLabel = "🔄 Range (RSI)";
+  if (strategy === "TREND") strategyLabel = "📈 Trend (EMA+MACD)";
+  if (strategy === "CORRELATION") strategyLabel = "📊 Correlation (DXY)";
+  if (strategy === "ICHIMOKU") strategyLabel = "☁️ Ichimoku";
+  
+  let qualityHtml = "";
+  if (t.quality) {
+    const q = t.quality;
+    const gradeEmoji = {A: "🏆", B: "✅", C: "⚠️", D: "🚫"}[q.grade] || "❔";
+    qualityHtml = `
+      <div class="modal-section">
+        <h4>⭐ کیفیت سیگنال</h4>
+        <div class="result-box ${q.grade === 'A' || q.grade === 'B' ? 'win' : 'open'}" style="font-size: 1.1rem; padding: 12px;">
+          ${gradeEmoji} امتیاز: ${q.score}/100 — گرید: ${q.grade}
+        </div>
+      </div>
+    `;
   }
 
-  // کارت‌های استراتژی
-  const strategies = ["RANGE", "TREND", "CORRELATION", "ICHIMOKU"];
-  const names = {
-    RANGE: "🔄 Range",
-    TREND: "📈 Trend",
-    CORRELATION: "📊 Correlation",
-    ICHIMOKU: "☁️ Ichimoku"
-  };
-  const classes = {
-    RANGE: "range", TREND: "trend",
-    CORRELATION: "correlation", ICHIMOKU: "ichimoku"
-  };
+  const rr = t.rr ? ` (R:R 1:${t.rr})` : "";
+  const pricesHtml = `
+    <div class="modal-section">
+      <h4>💰 قیمت‌ها${rr}</h4>
+      <div class="price-grid">
+        <div class="price-item entry"><div class="label">ورود</div><div class="value">${t.entry || '—'}</div></div>
+        <div class="price-item sl"><div class="label">حد ضرر</div><div class="value">${t.sl || '—'}</div></div>
+        <div class="price-item tp"><div class="label">حد سود</div><div class="value">${t.tp || '—'}</div></div>
+        ${t.exit_price ? `<div class="price-item exit"><div class="label">خروج</div><div class="value">${t.exit_price}</div></div>` : ''}
+      </div>
+    </div>
+  `;
 
-  let html = "";
-  strategies.forEach(strat => {
-    const trades = history.filter(t => normalizeStrat(t.strategy) === strat);
-    if (trades.length === 0) return;
+  document.getElementById("modal-content").innerHTML = `
+    <div class="modal-header">
+      <div class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}" style="font-size: 1.2rem; margin-bottom: 8px;">
+        ${t.side} — ${t.timeframe || ''}
+      </div>
+      <div class="badge ${strategy.toLowerCase()}" style="margin-bottom: 12px;">
+        ${strategyLabel}
+      </div>
+      <h3>${t.result ? getResultBadge(t.result) : '⏳ در جریان'}</h3>
+      <div class="time">${formatTime(t.sent_at, true)}</div>
+    </div>
+    ${t.result ? `<div class="modal-section"><div class="result-box ${t.result.toLowerCase()}">${t.result === 'WIN' ? '🏆' : '❌'} ${t.result} ${t.pnl ? `(${t.pnl > 0 ? '+' : ''}${t.pnl})` : ''}</div></div>` : ''}
+    ${qualityHtml}
+    ${pricesHtml}
+    <div class="modal-section">
+      <h4>📝 دلیل سیگنال</h4>
+      <div style="color: #8892b0; font-size: 0.9rem; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px;">
+        ${t.reason || '—'}
+      </div>
+    </div>
+  `;
 
-    const sWins = trades.filter(t => t.result === "WIN").length;
-    const sLosses = trades.filter(t => t.result === "LOSS").length;
-    const sOpens = trades.filter(t => !t.result).length;
-    const sClosed = sWins + sLosses;
-    const sWr = sClosed > 0
+  document.getElementById("modal").classList.add("active");
+}
+
+function closeModal(e) {
+  if (e.target.id === "modal" || e.target.className === "modal-close") document.getElementById("modal").classList.remove("active");
+}
+
+function tick() {
+  document.getElementById("live-clock").textContent = new Date().toLocaleTimeString("fa-IR");
+  countdown--;
+  document.getElementById("live-countdown").textContent = countdown;
+  if (countdown <= 0) { countdown = 60; loadData(); }
+}
+
+setInterval(tick, 1000);
+loadData();
+
+if (localStorage.getItem("notify_enabled") === "1") {
+  document.getElementById("notify-btn").textContent = "🔔 نوتیفیکیشن فعال";
+  document.getElementById("notify-btn").style.background = "linear-gradient(135deg, #4ade80, #22c55e)";
+}
+</script>
+</body>
+</html>
