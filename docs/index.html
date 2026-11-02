@@ -318,6 +318,59 @@ async function initNotification() {
     localStorage.setItem("notify_enabled", "1");
   }
 }
+
+function renderStats(history) {
+  const total = history.length;
+  const wins = history.filter(t => t.result === "WIN").length;
+  const losses = history.filter(t => t.result === "LOSS").length;
+  const opens = history.filter(t => !t.result).length;
+  const closed = wins + losses;
+  const winRate = closed > 0 ? round2(wins / closed * 100) : 0;
+  const pnl = round2(history.reduce((s, t) => s + (t.pnl || 0), 0));
+  
+  let totalWin = 0, totalLoss = 0;
+  history.forEach(t => {
+    if (t.result === "WIN" && t.pnl) totalWin += t.pnl;
+    if (t.result === "LOSS" && t.pnl) totalLoss += Math.abs(t.pnl);
+  });
+  const pf = totalLoss > 0 ? round2(totalWin / totalLoss) : 0;
+  
+  document.getElementById("total").textContent = total;
+  document.getElementById("wins").textContent = wins;
+  document.getElementById("losses").textContent = losses;
+  document.getElementById("open-count").textContent = opens;
+  document.getElementById("win-rate").textContent = winRate + "%";
+  document.getElementById("total-pnl").textContent = (pnl >= 0 ? "+" : "") + pnl;
+  document.getElementById("total-pnl").className = "stat-value small " + (pnl >= 0 ? "pnl-pos" : "pnl-neg");
+  document.getElementById("profit-factor").textContent = pf;
+  if (history[0]) document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
+
+  // کارت‌های آمار استراتژی‌ها
+  const strategies = ["RANGE", "TREND", "CORRELATION", "ICHIMOKU"];
+  const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku" };
+  const classes = { RANGE: "range", TREND: "trend", CORRELATION: "correlation", ICHIMOKU: "ichimoku" };
+  let stratHtml = "";
+  
+  strategies.forEach(strat => {
+    const trades = history.filter(t => (t.strategy || "RANGE") === strat);
+    if (trades.length === 0) return;
+    const sWins = trades.filter(t => t.result === "WIN").length;
+    const sLosses = trades.filter(t => t.result === "LOSS").length;
+    const sOpens = trades.filter(t => !t.result).length;
+    const sClosed = sWins + sLosses;
+    const sWr = sClosed > 0 ? round2(sWins / sClosed * 100) : 0;
+    const sPnl = round2(trades.reduce((sum, t) => sum + (t.pnl || 0), 0));
+    const wrColor = sWr >= 50 ? "color:#4ade80;" : "color:#f87171;";
+    const pnlColor = sPnl >= 0 ? "color:#4ade80;" : "color:#f87171;";
+    stratHtml += `
+      <div class="strat-card ${classes[strat]}">
+        <div class="strat-title">${names[strat]}</div>
+        <div class="strat-wr" style="${wrColor}">${sWr}%</div>
+        <div class="strat-detail">${sWins}W / ${sLosses}L | در جریان: ${sOpens}<br><span style="${pnlColor}">PnL: ${sPnl >= 0 ? '+' : ''}${sPnl}</span></div>
+      </div>`;
+  });
+  document.getElementById("strategy-stats").innerHTML = stratHtml;
+}
 async function loadData() {
   setStatus("⏳ در حال بارگذاری...");
   try {
