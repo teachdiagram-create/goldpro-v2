@@ -348,9 +348,8 @@ function showDetails(index) {
 }
 
 function closeModal(e) {
-  // اگه روی کاور کلیک شد یا دکمه بستن زده شد
   if (!e || e.target.id === "modal" || e.target.classList.contains("modal-close")) {
-    document.getElementById("modal").classList.remove("active");<button class="modal-close" onclick="closeModal()">✕</button>
+    document.getElementById("modal").classList.remove("active");
   }
 }
 function tick() { document.getElementById("live-clock").textContent = new Date().toLocaleTimeString("fa-IR"); countdown--; document.getElementById("live-countdown").textContent = countdown; if (countdown <= 0) { countdown = 60; loadData(); } }
