@@ -30,29 +30,35 @@ def _key(signal_or_trade: dict) -> str:
 
 
 def load_state() -> dict:
+    """خواندن state از Gist"""
     try:
         r = requests.get(GIST_API, headers=_headers(), timeout=20)
         r.raise_for_status()
         data = r.json()
         files = data.get("files", {})
         if "goldpro-state.json" not in files:
-            return {"last_signals": {}, "history": []}
+            return {"last_signals": {}, "history": [], "last_notified": "1970-01-01", "last_win_notified": "1970-01-01"}
 
         content = files["goldpro-state.json"].get("content", "{}")
         state = json.loads(content) if content.strip() else {}
 
         if "last_signals" not in state:
             old = {k: v for k, v in state.items() if ":" in k}
-            return {"last_signals": old, "history": []}
+            state = {"last_signals": old, "history": []}
 
         state.setdefault("history", [])
+        state.setdefault("last_notified", "1970-01-01")
+        state.setdefault("last_win_notified", "1970-01-01")
+        
         return state
+
     except Exception as e:
         print(f"[!] load_state error: {e}")
-        return {"last_signals": {}, "history": []}
+        return {"last_signals": {}, "history": [], "last_notified": "1970-01-01", "last_win_notified": "1970-01-01"}
 
 
 def save_state(state: dict) -> bool:
+    """ذخیره state در Gist"""
     try:
         payload = {
             "files": {
@@ -70,6 +76,7 @@ def save_state(state: dict) -> bool:
 
 
 def should_send(signal: dict, state: dict) -> bool:
+    """چک می‌کنه که آیا این سیگنال رو باید بفرستیم یا نه (Cooldown)"""
     key = _key(signal)
     tf = signal.get("timeframe", "5min")
     strategy = signal.get("strategy", "RANGE")
@@ -78,18 +85,22 @@ def should_send(signal: dict, state: dict) -> bool:
     if not last:
         return True
 
-    last_time = datetime.fromisoformat(last["sent_at"])
-    elapsed = datetime.utcnow() - last_time
+    try:
+        last_time = datetime.fromisoformat(last["sent_at"])
+        elapsed = datetime.utcnow() - last_time
 
-    if elapsed > timedelta(minutes=SIGNAL_COOLDOWN_MIN):
+        if elapsed > timedelta(minutes=SIGNAL_COOLDOWN_MIN):
+            return True
+
+        remaining = SIGNAL_COOLDOWN_MIN - int(elapsed.total_seconds() / 60)
+        print(f"⏸ Cooldown {strategy} {tf} — {remaining} min remaining")
+        return False
+    except Exception:
         return True
-
-    remaining = SIGNAL_COOLDOWN_MIN - int(elapsed.total_seconds() / 60)
-    print(f"⏸ Cooldown {strategy} {tf} — {remaining} min remaining")
-    return False
 
 
 def mark_sent(signal: dict, state: dict) -> dict:
+    """ثبت سیگنال ارسال‌شده در state + history"""
     key = _key(signal)
     symbol = _symbol_of(signal)
     tf = signal.get("timeframe", "5min")
@@ -98,7 +109,6 @@ def mark_sent(signal: dict, state: dict) -> dict:
 
     state.setdefault("last_signals", {})
     state.setdefault("history", [])
-    state.setdefault("last_notified", "1970-01-01")
 
     state["last_signals"][key] = {
         "symbol": symbol,
@@ -111,7 +121,7 @@ def mark_sent(signal: dict, state: dict) -> dict:
 
     # ثبت کامل ترید در تاریخچه
     new_trade = {
-        "signal_id": signal.get("signal_id", "N/A"),   # ← شناسه منحصر به فرد
+        "signal_id": signal.get("signal_id", "N/A"),
         "symbol": symbol,
         "side": signal["side"],
         "timeframe": tf,
