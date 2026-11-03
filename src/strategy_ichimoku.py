@@ -29,10 +29,12 @@ def calculate_ichimoku(df: pd.DataFrame) -> pd.DataFrame:
 
 def detect_ichimoku_signal(df_m5: pd.DataFrame) -> dict:
     """
-    تشخیص سیگنال ایچیموکو بر اساس استراتژی «شکست ابر کومو» (Kumo Breakout).
+    تشخیص سیگنال ایچیموکو بر اساس کراس تنکان/کیجون + تایید ابر کومو.
     
-    - BUY: کندل قبلی زیر ابر بوده، کندل فعلی بالای ابر بسته شده، و تنکان > کیجون.
-    - SELL: کندل قبلی بالای ابر بوده، کندل فعلی زیر ابر بسته شده، و تنکان < کیجون.
+    - BUY: کراس صعودی تنکان/کیجون + قیمت بالای ابر (روند صعودی)
+    - SELL: کراس نزولی تنکان/کیجون + قیمت زیر ابر (روند نزولی)
+    
+    اینطوری فقط در جهت روند معامله می‌کنیم و از نویزهای داخل ابر جلوگیری می‌شه.
     """
     if len(df_m5) < 60:
         return None
@@ -49,38 +51,35 @@ def detect_ichimoku_signal(df_m5: pd.DataFrame) -> dict:
     senkou_a = float(last["senkou_a"])
     senkou_b = float(last["senkou_b"])
     close = float(last["close"])
-    prev_close = float(prev["close"])
     
     prev_tenkan = float(prev["tenkan"])
     prev_kijun = float(prev["kijun"])
 
-    # اگه دیتا ناقص بود، سیگنال نده
     if any(pd.isna(x) for x in [tenkan, kijun, senkou_a, senkou_b, prev_tenkan, prev_kijun]):
         return None
 
     kumo_top = max(senkou_a, senkou_b)
     kumo_bottom = min(senkou_a, senkou_b)
 
-    # 🚨 منطق جدید: شکست ابر کومو (Kumo Breakout)
+    # 🚨 منطق جدید: کراس + تایید روند با ابر
     
-    # BUY: کندل قبلی زیر ابر، کندل فعلی بالای ابر، تنکان بالای کیجون
-    breakout_up = (prev_close <= kumo_top) and (close > kumo_top) and (tenkan > kijun)
+    cross_up = (prev_tenkan <= prev_kijun) and (tenkan > kijun)
+    cross_down = (prev_tenkan >= prev_kijun) and (tenkan < kijun)
     
-    # SELL: کندل قبلی بالای ابر، کندل فعلی زیر ابر، تنکان زیر کیجون
-    breakout_down = (prev_close >= kumo_bottom) and (close < kumo_bottom) and (tenkan < kijun)
-
-    if breakout_up:
+    # فقط اگه قیمت بالای ابر باشه (روند صعودی)
+    if cross_up and (close > kumo_top):
         return {
-            "pattern": "ichimoku_breakout",
+            "pattern": "ichimoku_trend_buy",
             "strategy": "ICHIMOKU",
             "direction": "BUY",
             "tenkan": round(tenkan, 2),
             "kijun": round(kijun, 2),
         }
 
-    if breakout_down:
+    # فقط اگه قیمت زیر ابر باشه (روند نزولی)
+    if cross_down and (close < kumo_bottom):
         return {
-            "pattern": "ichimoku_breakout",
+            "pattern": "ichimoku_trend_sell",
             "strategy": "ICHIMOKU",
             "direction": "SELL",
             "tenkan": round(tenkan, 2),
