@@ -133,46 +133,49 @@ def main():
     if state.get("current_price") is not None:
         state_changed = True
 
-    if USE_GIST and dataframes:
-        print(f"\n🔎 Checking open trades...")
-        try:
-            state, closed_count = update_open_trades(state, dataframes)
-            if closed_count > 0:
-                state_changed = True
-                print(f"✅ {closed_count} trade(s) closed")
+   if USE_GIST and dataframes:
+    print(f"\n🔎 Checking open trades...")
+    try:
+        state, closed_count = update_open_trades(state, dataframes)
+        if closed_count > 0:
+            state_changed = True
+            print(f"✅ {closed_count} trade(s) closed")
 
-                last_notified = state.get("last_notified", "1970-01-01")
-                for trade in state.get("history", []):
-                    if (trade.get("result") in ["WIN", "LOSS"]
-                            and trade.get("closed_at")
-                            and trade.get("closed_at") > last_notified):
-                        
-                        if trade["result"] == "WIN":
-                            msg = format_win_message(trade)
-                        else:
-                            msg = format_loss_message(trade)
-                        send_telegram(msg, with_dashboard_button=True)
-                        send_trade_closed_ntfy(trade)
-                        
-                        if trade["result"] == "WIN":
-                            try:
-                                send_win_sms(trade)
-                            except Exception as e:
-                                print(f"⚠️ WIN SMS error: {e}")
-                        
-                        state["last_notified"] = trade["closed_at"]
-                        if trade["result"] == "WIN":
-                            state["last_win_notified"] = trade["closed_at"]
+            # حالا هر تریدی که تازه بسته شده رو چک می‌کنیم
+            for trade in state.get("history", []):
+                # اگه ترید بسته شده و هنوز پیامش ارسال نشده
+                if (trade.get("result") in ["WIN", "LOSS"] 
+                    and trade.get("closed_at") 
+                    and not trade.get("notified")):
+                    
+                    # ارسال به تلگرام
+                    if trade["result"] == "WIN":
+                        msg = format_win_message(trade)
+                    else:
+                        msg = format_loss_message(trade)
+                    send_telegram(msg, with_dashboard_button=True)
+                    
+                    # ارسال به Ntfy
+                    send_trade_closed_ntfy(trade)
+                    
+                    # ارسال SMS فقط برای WIN
+                    if trade["result"] == "WIN":
+                        try:
+                            send_win_sms(trade)
+                        except Exception as e:
+                            print(f"⚠️ WIN SMS error: {e}")
+                    
+                    # ✅ مهم‌ترین خط: علامت‌گذاری که پیام این ترید ارسال شد
+                    trade["notified"] = True
 
-            stats = calculate_win_stats(state.get("history", []))
-            if stats:
-                print(f"\n📊 Stats: {stats.get('wins', 0)}W / {stats.get('losses', 0)}L | "
-                      f"WR={stats.get('win_rate', 0)}% | "
-                      f"PnL={stats.get('total_pnl', 0):+.2f} | "
-                      f"PF={stats.get('profit_factor', 0)}")
-        except Exception as e:
-            print(f"❌ update_open_trades error: {e}")
-
+        stats = calculate_win_stats(state.get("history", []))
+        if stats:
+            print(f"\n📊 Stats: {stats.get('wins', 0)}W / {stats.get('losses', 0)}L | "
+                  f"WR={stats.get('win_rate', 0)}% | "
+                  f"PnL={stats.get('total_pnl', 0):+.2f} | "
+                  f"PF={stats.get('profit_factor', 0)}")
+    except Exception as e:
+        print(f"❌ update_open_trades error: {e}")
     if state_changed:
         if save_state(state):
             print("💾 State saved ✅")
