@@ -163,3 +163,37 @@ def detect_trend_signal(df: pd.DataFrame):
         }
 
     return None
+def check_divergence(df: pd.DataFrame, side: str) -> bool:
+    """
+    چک کردن واگرایی بین قیمت و RSI.
+    - side == "SELL": واگرایی نزولی (RSI سقف بالاتر، قیمت سقف پایین‌تر)
+    - side == "BUY": واگرایی صعودی (RSI کف پایین‌تر، قیمت کف بالاتر)
+    """
+    if len(df) < 20:
+        return False
+
+    recent = df.tail(20)
+    rsi = recent["rsi"]
+    close = recent["close"]
+
+    if side == "SELL":
+        # پیدا کردن دو سقف اخیر RSI و قیمت
+        # ساده: اگه RSI الان بالای ۶۵ و بالاتر از سقف قبلی باشه، ولی قیمت پایین‌تر از سقف قبلی باشه
+        last_rsi = float(rsi.iloc[-1])
+        prev_rsi = float(rsi.iloc[-10:-5].max())
+        last_close = float(close.iloc[-1])
+        prev_close = float(close.iloc[-10:-5].max())
+        
+        if last_rsi > prev_rsi and last_close < prev_close:
+            return True
+
+    elif side == "BUY":
+        last_rsi = float(rsi.iloc[-1])
+        prev_rsi = float(rsi.iloc[-10:-5].min())
+        last_close = float(close.iloc[-1])
+        prev_close = float(close.iloc[-10:-5].min())
+        
+        if last_rsi < prev_rsi and last_close > prev_close:
+            return True
+
+    return False
