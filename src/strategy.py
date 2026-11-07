@@ -134,14 +134,12 @@ def detect_trend_signal(df: pd.DataFrame):
     last = df.iloc[-1]
     prev = df.iloc[-2]
 
-    # بررسی کراس EMA
     cross_up = (prev["ema_fast"] <= prev["ema_slow"]) and (last["ema_fast"] > last["ema_slow"])
     cross_down = (prev["ema_fast"] >= prev["ema_slow"]) and (last["ema_fast"] < last["ema_slow"])
 
     if not (cross_up or cross_down):
         return None
 
-    # تأیید با MACD
     if cross_up and last["macd"] > last["macd_signal"]:
         return {
             "pattern": "trend_ema_cross",
@@ -163,6 +161,11 @@ def detect_trend_signal(df: pd.DataFrame):
         }
 
     return None
+
+
+# ══════════════════════════════════════════════════════════════
+#  DIVERGENCE FILTER (فیلتر واگرایی)
+# ══════════════════════════════════════════════════════════════
 def check_divergence(df: pd.DataFrame, side: str) -> bool:
     """
     چک کردن واگرایی بین قیمت و RSI.
@@ -177,8 +180,6 @@ def check_divergence(df: pd.DataFrame, side: str) -> bool:
     close = recent["close"]
 
     if side == "SELL":
-        # پیدا کردن دو سقف اخیر RSI و قیمت
-        # ساده: اگه RSI الان بالای ۶۵ و بالاتر از سقف قبلی باشه، ولی قیمت پایین‌تر از سقف قبلی باشه
         last_rsi = float(rsi.iloc[-1])
         prev_rsi = float(rsi.iloc[-10:-5].max())
         last_close = float(close.iloc[-1])
