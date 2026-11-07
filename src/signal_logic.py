@@ -160,14 +160,17 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                         "valid": True,
                     }
 
-    # ─── استراتژی ۲: RANGE ───
+   
+    # ─── استراتژی ۲: RANGE (فقط در بازار رنج) ───
+# اگه ADX زیر ۲۵ باشه (بازار رنجه)، سیگنال Range بررسی می‌شه
+if adx_ < 25:
     sell_setup = detect_double_top_sell(rsi_series_m5)
     if sell_setup:
         sl, tp, sd, td, rr = compute_sl_tp("SELL", price, atr_)
         if sl is not None:
             return {
                 **base, 
-                "signal_id": f"R-{timestamp_id}", # ✅ آیدی اختصاصی Range
+                "signal_id": f"R-{timestamp_id}",
                 "side": "SELL", "entry": round(price, 2),
                 "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
                 "strategy": "RANGE",
@@ -182,7 +185,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         if sl is not None:
             return {
                 **base, 
-                "signal_id": f"R-{timestamp_id}", # ✅ آیدی اختصاصی Range
+                "signal_id": f"R-{timestamp_id}",
                 "side": "BUY", "entry": round(price, 2),
                 "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
                 "strategy": "RANGE",
