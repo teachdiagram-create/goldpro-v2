@@ -29,12 +29,13 @@ def calculate_ichimoku(df: pd.DataFrame) -> pd.DataFrame:
 
 def detect_ichimoku_signal(df_m5: pd.DataFrame) -> dict:
     """
-    تشخیص سیگنال ایچیموکو بر اساس کراس تنکان/کیجون + تایید ابر کومو.
+    استراتژی ایچیموکو برعکس شده (Inverted Ichimoku).
     
-    - BUY: کراس صعودی تنکان/کیجون + قیمت بالای ابر (روند صعودی)
-    - SELL: کراس نزولی تنکان/کیجون + قیمت زیر ابر (روند نزولی)
+    چون در تایم‌فریم ۵ دقیقه، کراس‌های استاندارد به شدت اشتباه عمل می‌کنند،
+    جهت سیگنال را برعکس می‌کنیم:
     
-    اینطوری فقط در جهت روند معامله می‌کنیم و از نویزهای داخل ابر جلوگیری می‌شه.
+    - کراس صعودی + قیمت بالای ابر  -> سیگنال SELL
+    - کراس نزولی + قیمت زیر ابر   -> سیگنال BUY
     """
     if len(df_m5) < 60:
         return None
@@ -61,27 +62,26 @@ def detect_ichimoku_signal(df_m5: pd.DataFrame) -> dict:
     kumo_top = max(senkou_a, senkou_b)
     kumo_bottom = min(senkou_a, senkou_b)
 
-    # 🚨 منطق جدید: کراس + تایید روند با ابر
-    
     cross_up = (prev_tenkan <= prev_kijun) and (tenkan > kijun)
     cross_down = (prev_tenkan >= prev_kijun) and (tenkan < kijun)
-    
-    # فقط اگه قیمت بالای ابر باشه (روند صعودی)
+
+    # 🚨 برعکس کردن منطق
+    # کراس صعودی در بازار صعودی -> حالا SELL می‌دهیم
     if cross_up and (close > kumo_top):
         return {
-            "pattern": "ichimoku_trend_buy",
+            "pattern": "ichimoku_inverted_sell",
             "strategy": "ICHIMOKU",
-            "direction": "BUY",
+            "direction": "SELL",
             "tenkan": round(tenkan, 2),
             "kijun": round(kijun, 2),
         }
 
-    # فقط اگه قیمت زیر ابر باشه (روند نزولی)
+    # کراس نزولی در بازار نزولی -> حالا BUY می‌دهیم
     if cross_down and (close < kumo_bottom):
         return {
-            "pattern": "ichimoku_trend_sell",
+            "pattern": "ichimoku_inverted_buy",
             "strategy": "ICHIMOKU",
-            "direction": "SELL",
+            "direction": "BUY",
             "tenkan": round(tenkan, 2),
             "kijun": round(kijun, 2),
         }
