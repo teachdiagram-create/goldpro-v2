@@ -174,6 +174,18 @@ footer { text-align: center; padding: 30px 0; color: #4a5578; font-size: 0.85rem
     #button-bar { bottom: 15px; }
     #notify-btn, #test-sound-btn { padding: 7px 11px; font-size: 0.72rem; }
   }
+/* استایل برای کارت‌های کلیک‌پذیر */
+.stat, .strat-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat:hover, .strat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(255, 215, 0, 0.15);
+}
+.stat:active, .strat-card:active {
+  transform: scale(0.98);
+}
 </style>
 </head>
 <body>
@@ -374,7 +386,10 @@ function renderStats(history) {
   const pnl = round2(history.reduce((s, t) => s + (t.pnl || 0), 0));
   
   let totalWin = 0, totalLoss = 0;
-  history.forEach(t => { if (t.result === "WIN" && t.pnl) totalWin += t.pnl; if (t.result === "LOSS" && t.pnl) totalLoss += Math.abs(t.pnl); });
+  history.forEach(t => {
+    if (t.result === "WIN" && t.pnl) totalWin += t.pnl;
+    if (t.result === "LOSS" && t.pnl) totalLoss += Math.abs(t.pnl);
+  });
   const pf = totalLoss > 0 ? round2(totalWin / totalLoss) : 0;
   
   document.getElementById("total").textContent = total;
@@ -387,26 +402,36 @@ function renderStats(history) {
   document.getElementById("profit-factor").textContent = pf;
   if (history[0]) document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
 
+  // ─── ساخت کارت‌های استراتژی‌ها ───
   const strategies = ["RANGE", "TREND", "CORRELATION", "ICHIMOKU"];
   const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku" };
   const classes = { RANGE: "range", TREND: "trend", CORRELATION: "correlation", ICHIMOKU: "ichimoku" };
   let stratHtml = "";
+  
   strategies.forEach(strat => {
     const trades = history.filter(t => (t.strategy || "RANGE") === strat);
     if (trades.length === 0) return;
+    
     const sWins = trades.filter(t => t.result === "WIN").length;
     const sLosses = trades.filter(t => t.result === "LOSS").length;
     const sOpens = trades.filter(t => !t.result).length;
     const sClosed = sWins + sLosses;
     const sWr = sClosed > 0 ? round2(sWins / sClosed * 100) : 0;
     const sPnl = round2(trades.reduce((sum, t) => sum + (t.pnl || 0), 0));
+    
     const wrColor = sWr >= 50 ? "color:#4ade80;" : "color:#f87171;";
     const pnlColor = sPnl >= 0 ? "color:#4ade80;" : "color:#f87171;";
-    stratHtml += `<div class="strat-card ${classes[strat]}"><div class="strat-title">${names[strat]}</div><div class="strat-wr" style="${wrColor}">${sWr}%</div><div class="strat-detail">${sWins}W / ${sLosses}L | در جریان: ${sOpens}<br><span style="${pnlColor}">PnL: ${sPnl >= 0 ? '+' : ''}${sPnl}</span></div></div>`;
+    
+    stratHtml += `
+      <div class="strat-card ${classes[strat]}" onclick="showStrategyList('${strat}')">
+        <div class="strat-title">${names[strat]}</div>
+        <div class="strat-wr" style="${wrColor}">${sWr}%</div>
+        <div class="strat-detail">${sWins}W / ${sLosses}L | در جریان: ${sOpens}<br><span style="${pnlColor}">PnL: ${sPnl >= 0 ? '+' : ''}${sPnl}</span></div>
+      </div>`;
   });
+  
   document.getElementById("strategy-stats").innerHTML = stratHtml;
 }
-
 function renderTable(history) {
   if (!history.length) { document.getElementById("table-wrap").innerHTML = '<div class="empty">📭 هنوز سیگنالی ثبت نشده</div>'; return; }
   let html = `<table><thead><tr><th>زمان</th><th>استراتژی</th><th>نوع</th><th>کیفیت</th><th>نتیجه</th><th class="hide-mobile">ورود</th></tr></thead><tbody>`;
@@ -514,6 +539,94 @@ window.addEventListener('popstate', function(event) {
     history.pushState(null, null, location.href);
   }
 });
+<!-- مودال نمایش لیست سیگنال‌های فیلترشده -->
+<div class="modal-overlay" id="list-modal" onclick="closeListModal(event)">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width: 700px;">
+    <button class="modal-close" onclick="closeListModal()">✕</button>
+    <div class="modal-header">
+      <h3 id="list-modal-title">لیست سیگنال‌ها</h3>
+    </div>
+    <div id="list-modal-content" style="max-height: 60vh; overflow-y: auto;">
+      <!-- لیست اینجا رندر می‌شه -->
+// ══════════════════════════════════════════════════════════════
+//  نمایش لیست سیگنال‌های فیلترشده
+// ══════════════════════════════════════════════════════════════
+
+function showStrategyList(strategy) {
+  const strategies = { RANGE: "🔄 Range (RSI)", TREND: "📈 Trend (EMA)", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku" };
+  const title = strategies[strategy] || strategy;
+  
+  document.getElementById("list-modal-title").textContent = `سیگنال‌های ${title}`;
+  
+  const filtered = currentHistory.filter(t => (t.strategy || "RANGE") === strategy);
+  renderListContent(filtered);
+  
+  document.getElementById("list-modal").classList.add("active");
+}
+
+function showOpenTrades() {
+  document.getElementById("list-modal-title").textContent = `⏳ معاملات در جریان`;
+  const filtered = currentHistory.filter(t => !t.result);
+  renderListContent(filtered);
+  document.getElementById("list-modal").classList.add("active");
+}
+
+function renderListContent(trades) {
+  const container = document.getElementById("list-modal-content");
+  
+  if (!trades.length) {
+    container.innerHTML = '<div class="empty">📭 سیگنالی یافت نشد</div>';
+    return;
+  }
+  
+  let html = `<table style="width:100%;">
+    <thead><tr>
+      <th>زمان</th><th>استراتژی</th><th>نوع</th><th>کیفیت</th><th>نتیجه</th><th>ورود</th>
+    </tr></thead><tbody>`;
+  
+  trades.forEach((t, i) => {
+    const strategy = t.strategy || "RANGE";
+    let strategyHtml = '<span class="badge range">🔄 Range</span>';
+    if (strategy === "TREND") strategyHtml = '<span class="badge trend">📈 Trend</span>';
+    if (strategy === "CORRELATION") strategyHtml = '<span class="badge correlation">📊 Correlation</span>';
+    if (strategy === "ICHIMOKU") strategyHtml = '<span class="badge ichimoku">☁️ Ichimoku</span>';
+
+    let gradeHtml = "—";
+    if (t.quality && t.quality.grade) {
+      const g = t.quality.grade;
+      gradeHtml = `<span class="badge grade-${g}">${t.quality.score} ${g}</span>`;
+    }
+
+    html += `
+      <tr onclick="showDetailsFromList(${currentHistory.indexOf(t)})">
+        <td style="font-size:0.75rem;">${formatTime(t.sent_at)}</td>
+        <td>${strategyHtml}</td>
+        <td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${t.side}</span></td>
+        <td>${gradeHtml}</td>
+        <td>${getResultBadge(t.result)}</td>
+        <td>${t.entry || '—'}</td>
+      </tr>`;
+  });
+  
+  html += "</tbody></table>";
+  container.innerHTML = html;
+}
+
+function showDetailsFromList(historyIndex) {
+  // بستن مودال لیست
+  document.getElementById("list-modal").classList.remove("active");
+  // باز کردن مودال جزئیات
+  showDetails(historyIndex);
+}
+
+function closeListModal(e) {
+  if (!e || e.target.id === "list-modal" || e.target.classList.contains("modal-close")) {
+    document.getElementById("list-modal").classList.remove("active");
+  }
+}
+    </div>
+  </div>
+</div>
 </script>
 </body>
 </html>
