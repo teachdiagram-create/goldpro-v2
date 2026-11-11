@@ -196,23 +196,39 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                 "reason": _build_reason(trend_signal, side, "TREND"),
                 "valid": True,
             }
+# ─── استراتژی ۴: ICHIMOKU (برعکس‌شده) ───
+ichi_signal = detect_ichimoku_signal(df_m5)
+if ichi_signal:
+    side = ichi_signal["direction"]  # این جهت الان برعکسه (از تابع میاد)
+    
+    # محاسبه فاصله‌ها
+    sl_dist = min(max(SL_ICHI_MULT * atr_, MIN_SL_USD), MAX_SL_USD)
+    tp_dist = min(max(TP_ICHI_MULT * atr_, MIN_TP_USD), MAX_SL_USD * 1.5)
+    
+    # 🚨 جایگذاری درست SL/TP بر اساس جهت
+    if side == "SELL":
+        sl = round(price + sl_dist, 2)   # SL بالای قیمت
+        tp = round(price - tp_dist, 2)   # TP پایین‌تر از قیمت
+    else:  # BUY
+        sl = round(price - sl_dist, 2)   # SL پایین‌تر از قیمت
+        tp = round(price + tp_dist, 2)   # TP بالای قیمت
+        
+    rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
 
-    # ─── استراتژی ۴: ICHIMOKU ───
-    ichi_signal = detect_ichimoku_signal(df_m5)
-    if ichi_signal:
-        side = ichi_signal["direction"]
-        sl_dist = min(max(SL_ICHI_MULT * atr_, MIN_SL_USD), MAX_SL_USD)
-        tp_dist = min(max(TP_ICHI_MULT * atr_, MIN_TP_USD), MAX_SL_USD * 1.5)
-        sl = round(price + sl_dist if side == "SELL" else price - sl_dist, 2)
-        tp = round(price - tp_dist if side == "SELL" else price + tp_dist, 2)
-        return {
-            **base, "signal_id": f"I-{timestamp_id}",
-            "side": side, "entry": round(price, 2),
-            "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": round(tp_dist/sl_dist, 2),
-            "strategy": "ICHIMOKU",
-            "quality": _compute_quality(adx_, atr_, rsi_, side, "ICHIMOKU"),
-            "reason": _build_reason(ichi_signal, side, "ICHIMOKU"),
-            "valid": True,
-        }
+    return {
+        **base,
+        "signal_id": f"I-{timestamp_id}",
+        "side": side,
+        "entry": round(price, 2),
+        "sl": sl,
+        "tp": tp,
+        "sl_distance": round(sl_dist, 2),
+        "tp_distance": round(tp_dist, 2),
+        "rr": rr,
+        "strategy": "ICHIMOKU",
+        "quality": _compute_quality(adx_, atr_, rsi_, side, "ICHIMOKU"),
+        "reason": _build_reason(ichi_signal, side, "ICHIMOKU"),
+        "valid": True,
+    }
 
     return None
