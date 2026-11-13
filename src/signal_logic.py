@@ -149,7 +149,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                     }
 
     # ─── استراتژی ۲: RANGE (فقط در بازار رنج) ───
-    if adx_ < 25:
+    if adx_ < 30:
         sell_setup = detect_double_top_sell(rsi_series_m5)
         if sell_setup:
             sl, tp, sd, td, rr = compute_sl_tp("SELL", price, atr_)
