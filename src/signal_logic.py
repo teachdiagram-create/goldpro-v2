@@ -1,5 +1,3 @@
-from src.strategy_ny_breakout import detect_ny_breakout_signal
-
 from datetime import datetime, timezone, timedelta
 
 from src.config import (
@@ -20,6 +18,8 @@ from src.strategy_correlation import (
     detect_trigger_m5,
 )
 from src.strategy_ichimoku import detect_ichimoku_signal
+from src.strategy_ny_breakout import detect_ny_breakout_signal
+
 
 def _is_market_closed_or_opening(dt_str: str) -> bool:
     try:
@@ -60,7 +60,7 @@ def _compute_quality(adx_val: float, atr_val: float, rsi_val: float,
         if strategy == "RANGE":
             if side == "SELL" and rsi_val <= 65: score += 10; flags.append("RSI تأیید می‌کند")
             elif side == "BUY" and rsi_val >= 35: score += 10; flags.append("RSI تأیید می‌کند")
-        elif strategy in ("TREND", "CORRELATION", "ICHIMOKU"):
+        elif strategy in ("TREND", "CORRELATION", "ICHIMOKU", "NY_BREAKOUT"):
             if side == "BUY" and 40 <= rsi_val <= 70: score += 10; flags.append("RSI در محدوده")
             elif side == "SELL" and 30 <= rsi_val <= 60: score += 10; flags.append("RSI در محدوده")
 
@@ -88,6 +88,8 @@ def _build_reason(setup: dict, side: str, strategy: str) -> str:
         return f"DXY corr + M15 trend {side} + M5 trigger"
     elif strategy == "ICHIMOKU":
         return "Ichimoku cross (Tenkan/Kijun) - Inverted"
+    elif strategy == "NY_BREAKOUT":
+        return f"NY ORB {side}: Range {setup.get('range_low')}-{setup.get('range_high')}"
     return f"{side} signal"
 
 
@@ -124,6 +126,42 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         "atr": round(atr_, 2),
         "time": dt_str,
     }
+
+    # ─── استراتژی ۰: NY ORB BREAKOUT (اولویت بالا چون محدود به ساعت است) ───
+    ny_signal = detect_ny_breakout_signal(df_m5)
+    if ny_signal:
+        side = ny_signal["direction"]
+        
+        if side == "BUY":
+            sl_price = ny_signal["sl_candle_low"]
+            sl_dist = price - sl_price
+            tp_dist = sl_dist * 2.5
+            tp = round(price + tp_dist, 2)
+            sl = round(sl_price, 2)
+        else:
+            sl_price = ny_signal["sl_candle_high"]
+            sl_dist = sl_price - price
+            tp_dist = sl_dist * 2.5
+            tp = round(price - tp_dist, 2)
+            sl = round(sl_price, 2)
+        
+        if sl_dist >= 1.0 and sl_dist <= 10.0:
+            rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
+            return {
+                **base,
+                "signal_id": f"N-{timestamp_id}",
+                "side": side,
+                "entry": round(price, 2),
+                "sl": sl,
+                "tp": tp,
+                "sl_distance": round(sl_dist, 2),
+                "tp_distance": round(tp_dist, 2),
+                "rr": rr,
+                "strategy": "NY_BREAKOUT",
+                "quality": _compute_quality(adx_, atr_, rsi_, side, "NY_BREAKOUT"),
+                "reason": _build_reason(ny_signal, side, "NY_BREAKOUT"),
+                "valid": True,
+            }
 
     # ─── استراتژی ۱: CORRELATION ───
     if df_dxy_m5 is not None and len(df_dxy_m5) > 20 and df_m15 is not None:
@@ -229,47 +267,5 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
             "reason": _build_reason(ichi_signal, side, "ICHIMOKU"),
             "valid": True,
         }
-# ─── استراتژی ۵: NY ORB BREAKOUT ───
-# این استراتژی فقط در بازه‌ی خاصی از روز فعاله، پس اول چکش می‌کنیم
-ny_signal = detect_ny_breakout_signal(df_m5)
-if ny_signal:
-    side = ny_signal["direction"]
-    
-    # محاسبه SL/TP بر اساس قوانین استراتژی
-    if side == "BUY":
-        sl_price = ny_signal["sl_candle_low"]
-        sl_dist = price - sl_price
-        # TP رو بر اساس R:R تنظیم می‌کنیم (مثلاً 2.5R برای TP نهایی)
-        tp_dist = sl_dist * 2.5
-        tp = round(price + tp_dist, 2)
-        sl = round(sl_price, 2)
-    else:
-        sl_price = ny_signal["sl_candle_high"]
-        sl_dist = sl_price - price
-        tp_dist = sl_dist * 2.5
-        tp = round(price - tp_dist, 2)
-        sl = round(sl_price, 2)
-    
-    # محدودیت‌های امنیتی
-    if sl_dist < 1.0 or sl_dist > 10.0: # SL خیلی کوچیک یا بزرگ نباشه
-        return None
-        
-    rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
-    
-    return {
-        **base,
-        "signal_id": f"N-{timestamp_id}",
-        "side": side,
-        "entry": round(price, 2),
-        "sl": sl,
-        "tp": tp,
-        "sl_distance": round(sl_dist, 2),
-        "tp_distance": round(tp_dist, 2),
-        "rr": rr,
-        "strategy": "NY_BREAKOUT",
-        "quality": _compute_quality(adx_, atr_, rsi_, side, "NY_BREAKOUT"), # کیفیت رو محاسبه می‌کنیم
-        "reason": f"NY ORB {side}: Range {ny_signal['range_low']}-{ny_signal['range_high']}",
-        "valid": True,
-    }
 
     return None
