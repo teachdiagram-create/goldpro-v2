@@ -248,9 +248,9 @@ function renderStats(history) {
   document.getElementById("profit-factor").textContent = pf;
 if (history[0]) document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
 
-  const strategies = ["RANGE", "TREND", "CORRELATION", "ICHIMOKU"];
-  const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku" };
-  const classes = { RANGE: "range", TREND: "trend", CORRELATION: "correlation", ICHIMOKU: "ichimoku" };
+  const strategies = ["RANGE", "TREND", "CORRELATION", "ICHIMOKU", "NY_BREAKOUT"];
+const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku", NY_BREAKOUT: "🗽 NY Breakout" };
+const classes = { RANGE: "range", TREND: "trend", CORRELATION: "correlation", ICHIMOKU: "ichimoku", NY_BREAKOUT: "ny-breakout" };
   let stratHtml = "";
   strategies.forEach(strat => {
     const trades = history.filter(t => (t.strategy || "RANGE") === strat);
@@ -276,6 +276,7 @@ function renderTable(history) {
     if (strategy === "TREND") strategyHtml = '<span class="badge trend">📈 Trend</span>';
     if (strategy === "CORRELATION") strategyHtml = '<span class="badge correlation">📊 Correlation</span>';
     if (strategy === "ICHIMOKU") strategyHtml = '<span class="badge ichimoku">☁️ Ichimoku</span>';
+    if (strategy === "NY_BREAKOUT") strategyHtml = '<span class="badge ny-breakout">🗽 NY Breakout</span>';
     let gradeHtml = "—";
     if (t.quality && t.quality.grade) { const g = t.quality.grade; gradeHtml = `<span class="badge grade-${g}">${t.quality.score} ${g}</span>`; }
     html += `<tr onclick="showDetails(${i})"><td>${formatTime(t.sent_at)}</td><td>${strategyHtml}</td><td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${t.side}</span></td><td>${gradeHtml}</td><td>${getResultBadge(t.result)}</td><td class="hide-mobile">${t.entry || '—'}</td></tr>`;
