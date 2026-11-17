@@ -30,6 +30,7 @@
   @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }
   #live-clock { color: #ffd700; font-weight: 700; }
   #live-countdown { color: #4ade80; font-weight: 700; min-width: 22px; display: inline-block; text-align: center; }
+<style>
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 20px; }
   .stat { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 215, 0, 0.15); border-radius: 14px; padding: 18px; text-align: center; transition: all 0.3s; cursor: pointer; }
   .stat:hover { transform: translateY(-3px); border-color: rgba(255, 215, 0, 0.4); box-shadow: 0 10px 30px rgba(255, 215, 0, 0.1); }
@@ -47,11 +48,11 @@
   .strat-card.trend { border-top: 4px solid #38bdf8; }
   .strat-card.correlation { border-top: 4px solid #fbbf24; }
   .strat-card.ichimoku { border-top: 4px solid #f43f5e; }
-.strat-card.ny-breakout { border-top: 4px solid #22c55e; }
-.badge.ny-breakout { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+  .strat-card.ny-breakout { border-top: 4px solid #22c55e; }
   .strat-title { font-size: 0.9rem; font-weight: 800; margin-bottom: 8px; }
   .strat-wr { font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; }
   .strat-detail { font-size: 0.75rem; color: #8892b0; }
+<style>
   .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 215, 0, 0.15); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
   .card h2 { font-size: 1.2rem; color: #ffd700; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid rgba(255, 215, 0, 0.15); }
   .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 20px; }
@@ -73,6 +74,8 @@
   .badge.trend { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
   .badge.correlation { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
   .badge.ichimoku { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); }
+  .badge.ny-breakout { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+<style>
   .empty { text-align: center; padding: 40px 20px; color: #8892b0; font-size: 0.95rem; }
   footer { text-align: center; padding: 30px 0; color: #4a5578; font-size: 0.85rem; }
   .refresh-btn { background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3); color: #ffd700; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-family: inherit; font-size: 0.9rem; }
@@ -104,60 +107,49 @@
 </style>
 </head>
 <body>
-
 <div class="container">
   <header>
     <h1>🥇 GoldPro V2</h1>
     <div class="subtitle">داشبورد سیگنال‌های معاملاتی XAU/USD</div>
     <div id="status" class="status-bar">⏳ در حال بارگذاری...</div>
   </header>
-
   <div class="price-card">
     <div class="price-label">💰 قیمت لحظه‌ای طلا (XAU/USD)</div>
     <div class="price-value" id="live-price">—</div>
   </div>
-
   <div class="live-bar">
     <div class="live-item"><span class="live-dot"></span><span>زنده</span></div>
     <div class="live-item">🕐 <span id="live-clock">--:--:--</span></div>
     <div class="live-item">🔄 بروزرسانی در <span id="live-countdown">60</span> ثانیه</div>
   </div>
-
-  <div class="strategy-stats" id="strategy-stats"></div>
-
-  <div class="stats">
-    <div class="stat"><div class="stat-value" id="total">-</div><div class="stat-label">کل سیگنال‌ها</div></div>
-    <div class="stat"><div class="stat-value win" id="wins">-</div><div class="stat-label">🏆 برد (WIN)</div></div>
-    <div class="stat"><div class="stat-value loss" id="losses">-</div><div class="stat-label">❌ باخت (LOSS)</div></div>
-    <div class="stat" onclick="showOpenTrades()"><div class="stat-value" id="open-count">-</div><div class="stat-label">⏳ در جریان</div></div>
-  </div>
-
-  <div class="stats">
-    <div class="stat"><div class="stat-value small" id="win-rate">-</div><div class="stat-label">💯 نرخ برد</div></div>
-    <div class="stat"><div class="stat-value small" id="total-pnl">-</div><div class="stat-label">💰 سود کل</div></div>
-    <div class="stat"><div class="stat-value small" id="profit-factor">-</div><div class="stat-label">📊 Profit Factor</div></div>
-    <div class="stat"><div class="stat-value small" id="last-time">-</div><div class="stat-label">آخرین سیگنال</div></div>
-  </div>
-
+<div class="strategy-stats" id="strategy-stats"></div>
+<div class="stats">
+  <div class="stat"><div class="stat-value" id="total">-</div><div class="stat-label">کل سیگنال‌ها</div></div>
+  <div class="stat"><div class="stat-value win" id="wins">-</div><div class="stat-label">🏆 برد (WIN)</div></div>
+  <div class="stat"><div class="stat-value loss" id="losses">-</div><div class="stat-label">❌ باخت (LOSS)</div></div>
+  <div class="stat" onclick="showOpenTrades()"><div class="stat-value" id="open-count">-</div><div class="stat-label">⏳ در جریان</div></div>
+</div>
+<div class="stats">
+  <div class="stat"><div class="stat-value small" id="win-rate">-</div><div class="stat-label">💯 نرخ برد</div></div>
+  <div class="stat"><div class="stat-value small" id="total-pnl">-</div><div class="stat-label">💰 سود کل</div></div>
+  <div class="stat"><div class="stat-value small" id="profit-factor">-</div><div class="stat-label">📊 Profit Factor</div></div>
+  <div class="stat"><div class="stat-value small" id="last-time">-</div><div class="stat-label">آخرین سیگنال</div></div>
+</div>
   <div class="charts">
     <div class="chart-box"><h3>🏆 برد vs باخت</h3><div class="chart-wrap"><canvas id="resultChart"></canvas></div></div>
     <div class="chart-box"><h3>⏱️ توزیع تایم‌فریم</h3><div class="chart-wrap"><canvas id="tfChart"></canvas></div></div>
   </div>
-
   <div class="card">
     <h2>📈 روند رشد سرمایه (Equity Curve)</h2>
     <div class="chart-wrap" style="height: 300px;"><canvas id="equityChart"></canvas></div>
     <div class="equity-stats" id="equity-stats"></div>
   </div>
-
   <div class="card">
     <h2 style="display:flex; justify-content:space-between; align-items:center;">📋 سیگنال‌های اخیر<button class="refresh-btn" onclick="loadData()">🔄 بروزرسانی</button></h2>
     <div id="table-wrap"><div class="empty">⏳ در حال بارگذاری...</div></div>
   </div>
-
   <footer>GoldPro V2 • به‌روزرسانی خودکار هر ۶۰ ثانیه</footer>
 </div>
-
 <div id="button-bar">
   <button id="notify-btn" onclick="initNotification()">🔔 فعال‌سازی نوتیفیکیشن</button>
   <button id="test-sound-btn" onclick="testSoundAndVibrate()">🔊 تست صدا</button>
@@ -177,11 +169,9 @@
     <div id="list-modal-content" style="max-height: 60vh; overflow-y: auto;"></div>
   </div>
 </div>
-
 <script>
 const GIST_ID = "da4184ca28cfa99438719f3e331c08b3";
 const GIST_API = "https://api.github.com/gists/" + GIST_ID;
-
 let resultChart = null, tfChart = null, equityChart = null, currentHistory = [], countdown = 60;
 let lastSeenSentAt = localStorage.getItem("last_seen_sent_at") || "";
 
@@ -200,7 +190,6 @@ function initAudioContext() { if (!audioContext) { audioContext = new (window.Au
 function playSignalAlarm() { try { const ctx = initAudioContext(); const now = ctx.currentTime; for (let round = 0; round < 3; round++) { const offset = round * 0.8; const beeps = [{ start: offset, duration: 0.15, freq: 880 }, { start: offset + 0.2, duration: 0.15, freq: 1100 }, { start: offset + 0.4, duration: 0.25, freq: 1320 }]; beeps.forEach(beep => { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); osc.frequency.value = beep.freq; osc.type = 'sine'; gain.gain.setValueAtTime(0, now + beep.start); gain.gain.linearRampToValueAtTime(1.0, now + beep.start + 0.02); gain.gain.linearRampToValueAtTime(0, now + beep.start + beep.duration); osc.start(now + beep.start); osc.stop(now + beep.start + beep.duration); }); } } catch (e) { console.log('Sound failed:', e); } }
 function testSoundAndVibrate() { initAudioContext(); playSignalAlarm(); if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]); }
 async function initNotification() { if (!("Notification" in window)) { alert("مرورگر شما از نوتیفیکیشن پشتیبانی نمی‌کنه"); return; } const perm = await Notification.requestPermission(); if (perm === "granted") { document.getElementById("notify-btn").textContent = "🔔 نوتیفیکیشن فعال"; document.getElementById("notify-btn").style.background = "linear-gradient(135deg, #4ade80, #22c55e)"; new Notification("✅ GoldPro", { body: "نوتیفیکیشن فعال شد." }); localStorage.setItem("notify_enabled", "1"); } }
-
 async function loadData() {
   setStatus("⏳ در حال بارگذاری...");
   try {
@@ -248,11 +237,11 @@ function renderStats(history) {
   document.getElementById("total-pnl").textContent = (pnl >= 0 ? "+" : "") + pnl;
   document.getElementById("total-pnl").className = "stat-value small " + (pnl >= 0 ? "pnl-pos" : "pnl-neg");
   document.getElementById("profit-factor").textContent = pf;
-if (history[0]) document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
+  if (history[0]) document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
 
   const strategies = ["RANGE", "TREND", "CORRELATION", "ICHIMOKU", "NY_BREAKOUT"];
-const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku", NY_BREAKOUT: "🗽 NY Breakout" };
-const classes = { RANGE: "range", TREND: "trend", CORRELATION: "correlation", ICHIMOKU: "ichimoku", NY_BREAKOUT: "ny-breakout" };
+  const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku", NY_BREAKOUT: "🗽 NY Breakout" };
+  const classes = { RANGE: "range", TREND: "trend", CORRELATION: "correlation", ICHIMOKU: "ichimoku", NY_BREAKOUT: "ny-breakout" };
   let stratHtml = "";
   strategies.forEach(strat => {
     const trades = history.filter(t => (t.strategy || "RANGE") === strat);
@@ -311,18 +300,19 @@ function showDetails(index) {
   if (strategy === "TREND") strategyLabel = "📈 Trend (EMA+MACD)";
   if (strategy === "CORRELATION") strategyLabel = "📊 Correlation (DXY)";
   if (strategy === "ICHIMOKU") strategyLabel = "☁️ Ichimoku";
+  if (strategy === "NY_BREAKOUT") strategyLabel = "🗽 NY Breakout";
   let qualityHtml = "";
   if (t.quality) { const q = t.quality; const gradeEmoji = {A: "🏆", B: "✅", C: "⚠️", D: "🚫"}[q.grade] || "❔"; qualityHtml = `<div class="modal-section"><h4>⭐ کیفیت سیگنال</h4><div class="result-box ${q.grade === 'A' || q.grade === 'B' ? 'win' : 'open'}" style="font-size: 1.1rem; padding: 12px;">${gradeEmoji} امتیاز: ${q.score}/100 — گرید: ${q.grade}</div></div>`; }
   const rr = t.rr ? ` (R:R 1:${t.rr})` : "";
   const pricesHtml = `<div class="modal-section"><h4>💰 قیمت‌ها${rr}</h4><div class="price-grid"><div class="price-item entry"><div class="label">ورود</div><div class="value">${t.entry || '—'}</div></div><div class="price-item sl"><div class="label">حد ضرر</div><div class="value">${t.sl || '—'}</div></div><div class="price-item tp"><div class="label">حد سود</div><div class="value">${t.tp || '—'}</div></div>${t.exit_price ? `<div class="price-item exit"><div class="label">خروج</div><div class="value">${t.exit_price}</div></div>` : ''}</div></div>`;
-  document.getElementById("modal-content").innerHTML = `<div class="modal-header"><div class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}" style="font-size: 1.2rem; margin-bottom: 8px;">${t.side} — ${t.timeframe || ''}</div><div class="badge ${strategy.toLowerCase()}" style="margin-bottom: 12px;">${strategyLabel}</div><h3>${t.result ? getResultBadge(t.result) : '⏳ در جریان'}</h3><div class="time">${formatTime(t.sent_at, true)}</div></div>${t.result ? `<div class="modal-section"><div class="result-box ${t.result.toLowerCase()}">${t.result === 'WIN' ? '🏆' : '❌'} ${t.result} ${t.pnl ? `(${t.pnl > 0 ? '+' : ''}${t.pnl})` : ''}</div></div>` : ''}${qualityHtml}${pricesHtml}<div class="modal-section"><h4>📝 دلیل سیگنال</h4><div style="color: #8892b0; font-size: 0.9rem; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px;">${t.reason || '—'}</div></div>`;
+  document.getElementById("modal-content").innerHTML = `<div class="modal-header"><div class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}" style="font-size: 1.2rem; margin-bottom: 8px;">${t.side} — ${t.timeframe || ''}</div><div class="badge ${strategy.toLowerCase().replace('_','-')}" style="margin-bottom: 12px;">${strategyLabel}</div><h3>${t.result ? getResultBadge(t.result) : '⏳ در جریان'}</h3><div class="time">${formatTime(t.sent_at, true)}</div></div>${t.result ? `<div class="modal-section"><div class="result-box ${t.result.toLowerCase()}">${t.result === 'WIN' ? '🏆' : '❌'} ${t.result} ${t.pnl ? `(${t.pnl > 0 ? '+' : ''}${t.pnl})` : ''}</div></div>` : ''}${qualityHtml}${pricesHtml}<div class="modal-section"><h4>📝 دلیل سیگنال</h4><div style="color: #8892b0; font-size: 0.9rem; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px;">${t.reason || '—'}</div></div>`;
   document.getElementById("modal").classList.add("active");
 }
 
 function closeModal(e) { if (!e || e.target.id === "modal" || e.target.classList.contains("modal-close")) { document.getElementById("modal").classList.remove("active"); } }
 
 function showStrategyList(strategy) {
-  const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku" };
+  const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku", NY_BREAKOUT: "🗽 NY Breakout" };
   document.getElementById("list-modal-title").textContent = `سیگنال‌های ${names[strategy] || strategy}`;
   const filtered = currentHistory.filter(t => (t.strategy || "RANGE") === strategy);
   renderListContent(filtered);
@@ -344,6 +334,7 @@ function renderListContent(trades) {
     if (strategy === "TREND") strategyHtml = '<span class="badge trend">📈</span>';
     if (strategy === "CORRELATION") strategyHtml = '<span class="badge correlation">📊</span>';
     if (strategy === "ICHIMOKU") strategyHtml = '<span class="badge ichimoku">☁️</span>';
+    if (strategy === "NY_BREAKOUT") strategyHtml = '<span class="badge ny-breakout">🗽</span>';
     html += `<tr onclick="showDetailsFromList(${currentHistory.indexOf(t)})"><td>${formatTime(t.sent_at)}</td><td>${strategyHtml}</td><td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${t.side}</span></td><td>${getResultBadge(t.result)}</td><td>${t.entry || '—'}</td></tr>`;
   });
   container.innerHTML = html + "</tbody></table>";
