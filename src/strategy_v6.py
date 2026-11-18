@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from src.indicators import ema  # 🚨 اضافه شد: استفاده از تابع EMA اصلی
 
 
 def detect_market_structure(df: pd.DataFrame, lookback: int = 20) -> dict:
@@ -56,14 +57,17 @@ def detect_v6_signal(df_m5: pd.DataFrame, df_m15: pd.DataFrame) -> dict:
     closed_m15 = df_m15.iloc[:-1]
     last_m15 = closed_m15.iloc[-1]
     
-    # 🚨 اصلاح: استفاده از EMA50 واقعی (ema_slow)، نه EMA20 (ema_fast)
+    # EMA50 واقعی
     ema50_m15 = float(last_m15["ema_slow"]) if "ema_slow" in last_m15 else float(last_m15["close"])
     
-    # برای EMA200: اگه داده کافی بود، محاسبه کن. وگرنه از EMA100 استفاده کن.
+    # 🚨 اصلاح: محاسبه EMA200 واقعی (نه SMA200)
     if len(closed_m15) >= 200:
-        ema200_m15 = float(closed_m15["close"].rolling(200).mean().iloc[-1])
+        ema200_series = ema(closed_m15["close"], 200)
+        ema200_m15 = float(ema200_series.iloc[-1])
     elif len(closed_m15) >= 100:
-        ema200_m15 = float(closed_m15["close"].rolling(100).mean().iloc[-1])
+        # اگه ۲۰۰ کندل نبود، از EMA100 استفاده کن
+        ema100_series = ema(closed_m15["close"], 100)
+        ema200_m15 = float(ema100_series.iloc[-1])
     else:
         ema200_m15 = ema50_m15
 
@@ -75,7 +79,7 @@ def detect_v6_signal(df_m5: pd.DataFrame, df_m15: pd.DataFrame) -> dict:
     price = float(current_m5["close"])
     atr_ = float(current_m5["atr"])
     
-    # 🚨 اصلاح: در M5 هم از EMA50 واقعی استفاده کن
+    # EMA50 واقعی در M5
     ema50_m5 = float(current_m5["ema_slow"]) if "ema_slow" in current_m5 else price
 
     # ─── ۳. تشخیص BOS (Break of Structure) در M5 ───
