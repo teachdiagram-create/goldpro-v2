@@ -130,6 +130,9 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         "time": dt_str,
     }
 
+    # لیست برای ذخیره سیگنال‌های معتبر
+    valid_signals = []
+
     # ─── استراتژی ۰: NY ORB BREAKOUT ───
     ny_signal = detect_ny_breakout_signal(df_m5)
     if ny_signal:
@@ -149,15 +152,17 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         
         if sl_dist >= 1.0 and sl_dist <= 10.0:
             rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
-            return {
+            q = _compute_quality(adx_, atr_, rsi_, side, "NY_BREAKOUT")
+            valid_signals.append({
                 **base, "signal_id": f"N-{timestamp_id}",
                 "side": side, "entry": round(price, 2),
                 "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": rr,
                 "strategy": "NY_BREAKOUT",
-                "quality": _compute_quality(adx_, atr_, rsi_, side, "NY_BREAKOUT"),
+                "quality": q,
                 "reason": _build_reason(ny_signal, side, "NY_BREAKOUT"),
                 "valid": True,
-            }
+                "_score": q["score"]  # برای مقایسه
+            })
 
     # ─── استراتژی V6: STRUCTURE + EMA + ATR ───
     v6_signal = detect_v6_signal(df_m5, df_m15)
@@ -166,29 +171,43 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         if side == "BUY":
             sl_price = v6_signal["local_low"] - (0.5 * atr_)
             sl_dist = price - sl_price
-            if sl_dist < 1.0 or sl_dist > 15.0: return None
-            tp_dist = sl_dist * 1.5
-            tp = round(price + tp_dist, 2)
-            sl = round(sl_price, 2)
+            if 1.0 <= sl_dist <= 15.0:
+                tp_dist = sl_dist * 1.5
+                tp = round(price + tp_dist, 2)
+                sl = round(sl_price, 2)
+                rr = round(tp_dist / sl_dist, 2)
+                if rr >= 1.5:
+                    q = _compute_quality(adx_, atr_, rsi_, side, "V6_STRUCTURE")
+                    valid_signals.append({
+                        **base, "signal_id": f"V6-{timestamp_id}",
+                        "side": side, "entry": round(price, 2),
+                        "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": rr,
+                        "strategy": "V6_STRUCTURE",
+                        "quality": q,
+                        "reason": _build_reason(v6_signal, side, "V6_STRUCTURE"),
+                        "valid": True,
+                        "_score": q["score"]
+                    })
         else:
             sl_price = v6_signal["local_high"] + (0.5 * atr_)
             sl_dist = sl_price - price
-            if sl_dist < 1.0 or sl_dist > 15.0: return None
-            tp_dist = sl_dist * 1.5
-            tp = round(price - tp_dist, 2)
-            sl = round(sl_price, 2)
-        
-        rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
-        if rr >= 1.5:
-            return {
-                **base, "signal_id": f"V6-{timestamp_id}",
-                "side": side, "entry": round(price, 2),
-                "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": rr,
-                "strategy": "V6_STRUCTURE",
-                "quality": _compute_quality(adx_, atr_, rsi_, side, "V6_STRUCTURE"),
-                "reason": _build_reason(v6_signal, side, "V6_STRUCTURE"),
-                "valid": True,
-            }
+            if 1.0 <= sl_dist <= 15.0:
+                tp_dist = sl_dist * 1.5
+                tp = round(price - tp_dist, 2)
+                sl = round(sl_price, 2)
+                rr = round(tp_dist / sl_dist, 2)
+                if rr >= 1.5:
+                    q = _compute_quality(adx_, atr_, rsi_, side, "V6_STRUCTURE")
+                    valid_signals.append({
+                        **base, "signal_id": f"V6-{timestamp_id}",
+                        "side": side, "entry": round(price, 2),
+                        "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": rr,
+                        "strategy": "V6_STRUCTURE",
+                        "quality": q,
+                        "reason": _build_reason(v6_signal, side, "V6_STRUCTURE"),
+                        "valid": True,
+                        "_score": q["score"]
+                    })
 
     # ─── استراتژی ۱: CORRELATION ───
     if df_dxy_m5 is not None and len(df_dxy_m5) > 20 and df_m15 is not None:
@@ -204,15 +223,17 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                     tp_dist = min(max(TP_CORR_MULT * atr_, 4.5), MAX_SL_USD * 1.5)
                     sl = round(price + sl_dist if trend == "SELL" else price - sl_dist, 2)
                     tp = round(price - tp_dist if trend == "SELL" else price + tp_dist, 2)
-                    return {
+                    q = _compute_quality(adx_, atr_, rsi_, trend, "CORRELATION")
+                    valid_signals.append({
                         **base, "signal_id": f"C-{timestamp_id}",
                         "side": trend, "entry": round(price, 2),
                         "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": round(tp_dist/sl_dist, 2),
                         "strategy": "CORRELATION",
-                        "quality": _compute_quality(adx_, atr_, rsi_, trend, "CORRELATION"),
+                        "quality": q,
                         "reason": f"DXY corr={corr_val} + M15 {trend} + M5 trigger",
                         "valid": True,
-                    }
+                        "_score": q["score"]
+                    })
 
     # ─── استراتژی ۲: RANGE ───
     if adx_ < 30:
@@ -221,30 +242,34 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
             sl, tp, sd, td, rr = compute_sl_tp("SELL", price, atr_)
             if sl is not None:
                 divergence = check_divergence(closed_m5, "SELL")
-                return {
+                q = _compute_quality(adx_, atr_, rsi_, "SELL", "RANGE", divergence)
+                valid_signals.append({
                     **base, "signal_id": f"R-{timestamp_id}",
                     "side": "SELL", "entry": round(price, 2),
                     "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
                     "strategy": "RANGE",
-                    "quality": _compute_quality(adx_, atr_, rsi_, "SELL", "RANGE", divergence),
+                    "quality": q,
                     "reason": _build_reason(sell_setup, "SELL", "RANGE"),
                     "valid": True,
-                }
+                    "_score": q["score"]
+                })
 
         buy_setup = detect_double_bottom_buy(rsi_series_m5)
         if buy_setup:
             sl, tp, sd, td, rr = compute_sl_tp("BUY", price, atr_)
             if sl is not None:
                 divergence = check_divergence(closed_m5, "BUY")
-                return {
+                q = _compute_quality(adx_, atr_, rsi_, "BUY", "RANGE", divergence)
+                valid_signals.append({
                     **base, "signal_id": f"R-{timestamp_id}",
                     "side": "BUY", "entry": round(price, 2),
                     "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
                     "strategy": "RANGE",
-                    "quality": _compute_quality(adx_, atr_, rsi_, "BUY", "RANGE", divergence),
+                    "quality": q,
                     "reason": _build_reason(buy_setup, "BUY", "RANGE"),
                     "valid": True,
-                }
+                    "_score": q["score"]
+                })
 
     # ─── استراتژی ۳: TREND ───
     trend_signal = detect_trend_signal(closed_m5)
@@ -252,15 +277,17 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         side = trend_signal["direction"]
         sl, tp, sd, td, rr = compute_sl_tp(side, price, atr_)
         if sl is not None:
-            return {
+            q = _compute_quality(adx_, atr_, rsi_, side, "TREND")
+            valid_signals.append({
                 **base, "signal_id": f"T-{timestamp_id}",
                 "side": side, "entry": round(price, 2),
                 "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
                 "strategy": "TREND",
-                "quality": _compute_quality(adx_, atr_, rsi_, side, "TREND"),
+                "quality": q,
                 "reason": _build_reason(trend_signal, side, "TREND"),
                 "valid": True,
-            }
+                "_score": q["score"]
+            })
 
     # ─── استراتژی ۴: ICHIMOKU (برعکس‌شده) ───
     ichi_signal = detect_ichimoku_signal(df_m5)
@@ -275,14 +302,27 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
             sl = round(price - sl_dist, 2)
             tp = round(price + tp_dist, 2)
         rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
-        return {
+        q = _compute_quality(adx_, atr_, rsi_, side, "ICHIMOKU")
+        valid_signals.append({
             **base, "signal_id": f"I-{timestamp_id}",
             "side": side, "entry": round(price, 2),
             "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": rr,
             "strategy": "ICHIMOKU",
-            "quality": _compute_quality(adx_, atr_, rsi_, side, "ICHIMOKU"),
+            "quality": q,
             "reason": _build_reason(ichi_signal, side, "ICHIMOKU"),
             "valid": True,
-        }
+            "_score": q["score"]
+        })
 
-    return None
+    # ─── انتخاب بهترین سیگنال ───
+    if not valid_signals:
+        return None
+
+    # مرتب‌سازی بر اساس امتیاز کیفیت (بیشترین به کمترین)
+    valid_signals.sort(key=lambda x: x["_score"], reverse=True)
+    
+    # برگرداندن بهترین سیگنال (و حذف فیلد کمکی _score)
+    best_signal = valid_signals[0]
+    del best_signal["_score"]
+    
+    return best_signal
