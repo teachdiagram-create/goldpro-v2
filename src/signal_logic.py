@@ -19,6 +19,7 @@ from src.strategy_correlation import (
 )
 from src.strategy_ichimoku import detect_ichimoku_signal
 from src.strategy_ny_breakout import detect_ny_breakout_signal
+from src.strategy_v6 import detect_v6_signal
 
 
 def _is_market_closed_or_opening(dt_str: str) -> bool:
@@ -60,7 +61,7 @@ def _compute_quality(adx_val: float, atr_val: float, rsi_val: float,
         if strategy == "RANGE":
             if side == "SELL" and rsi_val <= 65: score += 10; flags.append("RSI تأیید می‌کند")
             elif side == "BUY" and rsi_val >= 35: score += 10; flags.append("RSI تأیید می‌کند")
-        elif strategy in ("TREND", "CORRELATION", "ICHIMOKU", "NY_BREAKOUT"):
+        elif strategy in ("TREND", "CORRELATION", "ICHIMOKU", "NY_BREAKOUT", "V6_STRUCTURE"):
             if side == "BUY" and 40 <= rsi_val <= 70: score += 10; flags.append("RSI در محدوده")
             elif side == "SELL" and 30 <= rsi_val <= 60: score += 10; flags.append("RSI در محدوده")
 
@@ -90,6 +91,8 @@ def _build_reason(setup: dict, side: str, strategy: str) -> str:
         return "Ichimoku cross (Tenkan/Kijun) - Inverted"
     elif strategy == "NY_BREAKOUT":
         return f"NY ORB {side}: Range {setup.get('range_low')}-{setup.get('range_high')}"
+    elif strategy == "V6_STRUCTURE":
+        return f"V6 Structure {side}: Trend {setup.get('structure_trend')}"
     return f"{side} signal"
 
 
@@ -127,11 +130,10 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         "time": dt_str,
     }
 
-    # ─── استراتژی ۰: NY ORB BREAKOUT (اولویت بالا چون محدود به ساعت است) ───
+    # ─── استراتژی ۰: NY ORB BREAKOUT ───
     ny_signal = detect_ny_breakout_signal(df_m5)
     if ny_signal:
         side = ny_signal["direction"]
-        
         if side == "BUY":
             sl_price = ny_signal["sl_candle_low"]
             sl_dist = price - sl_price
@@ -148,18 +150,43 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         if sl_dist >= 1.0 and sl_dist <= 10.0:
             rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
             return {
-                **base,
-                "signal_id": f"N-{timestamp_id}",
-                "side": side,
-                "entry": round(price, 2),
-                "sl": sl,
-                "tp": tp,
-                "sl_distance": round(sl_dist, 2),
-                "tp_distance": round(tp_dist, 2),
-                "rr": rr,
+                **base, "signal_id": f"N-{timestamp_id}",
+                "side": side, "entry": round(price, 2),
+                "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": rr,
                 "strategy": "NY_BREAKOUT",
                 "quality": _compute_quality(adx_, atr_, rsi_, side, "NY_BREAKOUT"),
                 "reason": _build_reason(ny_signal, side, "NY_BREAKOUT"),
+                "valid": True,
+            }
+
+    # ─── استراتژی V6: STRUCTURE + EMA + ATR ───
+    v6_signal = detect_v6_signal(df_m5, df_m15)
+    if v6_signal:
+        side = v6_signal["direction"]
+        if side == "BUY":
+            sl_price = v6_signal["local_low"] - (0.5 * atr_)
+            sl_dist = price - sl_price
+            if sl_dist < 1.0 or sl_dist > 15.0: return None
+            tp_dist = sl_dist * 1.5
+            tp = round(price + tp_dist, 2)
+            sl = round(sl_price, 2)
+        else:
+            sl_price = v6_signal["local_high"] + (0.5 * atr_)
+            sl_dist = sl_price - price
+            if sl_dist < 1.0 or sl_dist > 15.0: return None
+            tp_dist = sl_dist * 1.5
+            tp = round(price - tp_dist, 2)
+            sl = round(sl_price, 2)
+        
+        rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
+        if rr >= 1.5:
+            return {
+                **base, "signal_id": f"V6-{timestamp_id}",
+                "side": side, "entry": round(price, 2),
+                "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": rr,
+                "strategy": "V6_STRUCTURE",
+                "quality": _compute_quality(adx_, atr_, rsi_, side, "V6_STRUCTURE"),
+                "reason": _build_reason(v6_signal, side, "V6_STRUCTURE"),
                 "valid": True,
             }
 
@@ -187,7 +214,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                         "valid": True,
                     }
 
-    # ─── استراتژی ۲: RANGE (فقط در بازار رنج) ───
+    # ─── استراتژی ۲: RANGE ───
     if adx_ < 30:
         sell_setup = detect_double_top_sell(rsi_series_m5)
         if sell_setup:
@@ -239,29 +266,19 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     ichi_signal = detect_ichimoku_signal(df_m5)
     if ichi_signal:
         side = ichi_signal["direction"]
-        
         sl_dist = min(max(SL_ICHI_MULT * atr_, MIN_SL_USD), MAX_SL_USD)
         tp_dist = min(max(TP_ICHI_MULT * atr_, MIN_TP_USD), MAX_SL_USD * 1.5)
-        
         if side == "SELL":
             sl = round(price + sl_dist, 2)
             tp = round(price - tp_dist, 2)
         else:
             sl = round(price - sl_dist, 2)
             tp = round(price + tp_dist, 2)
-            
         rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
-
         return {
-            **base,
-            "signal_id": f"I-{timestamp_id}",
-            "side": side,
-            "entry": round(price, 2),
-            "sl": sl,
-            "tp": tp,
-            "sl_distance": round(sl_dist, 2),
-            "tp_distance": round(tp_dist, 2),
-            "rr": rr,
+            **base, "signal_id": f"I-{timestamp_id}",
+            "side": side, "entry": round(price, 2),
+            "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": rr,
             "strategy": "ICHIMOKU",
             "quality": _compute_quality(adx_, atr_, rsi_, side, "ICHIMOKU"),
             "reason": _build_reason(ichi_signal, side, "ICHIMOKU"),
