@@ -47,7 +47,8 @@ def check_trade_result(trade: dict, df) -> dict:
         open_price = float(candle["open"])
         candle_dt = str(candle["datetime"])
 
-        # ─── بررسی گپ قیمت ───
+        # ─── بررسی گپ قیمت (Gap) ───
+        # اگه کندل با گپ باز شده باشه و از SL/TP رد شده باشه
         if side == "BUY":
             if open_price <= sl:
                 pnl = open_price - entry
@@ -55,7 +56,7 @@ def check_trade_result(trade: dict, df) -> dict:
             if open_price >= tp:
                 pnl = open_price - entry
                 return {**trade, "result": "WIN", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
-        else:
+        else:  # SELL
             if open_price >= sl:
                 pnl = entry - open_price
                 return {**trade, "result": "LOSS", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
@@ -64,14 +65,12 @@ def check_trade_result(trade: dict, df) -> dict:
                 return {**trade, "result": "WIN", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
 
         # ─── بررسی برخورد TP و SL در یک کندل ───
+        # ⚠️ محافظه‌کارانه: اگه هر دو در یه کندل لمس شدن، فرض می‌کنیم SL اول خورده
         if side == "BUY":
             if low <= sl and high >= tp:
-                if abs(open_price - sl) < abs(tp - open_price):
-                    pnl = sl - entry
-                    return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
-                else:
-                    pnl = tp - entry
-                    return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                # بدترین حالت: SL اول خورده
+                pnl = sl - entry
+                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
             
             if low <= sl:
                 pnl = sl - entry
@@ -81,14 +80,11 @@ def check_trade_result(trade: dict, df) -> dict:
                 pnl = tp - entry
                 return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
 
-        else:
+        else:  # SELL
             if high >= sl and low <= tp:
-                if abs(open_price - sl) < abs(tp - open_price):
-                    pnl = entry - sl
-                    return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
-                else:
-                    pnl = entry - tp
-                    return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                # بدترین حالت: SL اول خورده
+                pnl = entry - sl
+                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
 
             if high >= sl:
                 pnl = entry - sl
@@ -99,6 +95,8 @@ def check_trade_result(trade: dict, df) -> dict:
                 return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
 
     return trade
+
+
 def update_open_trades(state: dict, dataframes: dict) -> tuple:
     """
     همه معاملات باز رو چک می‌کنه و آپدیت می‌کنه.
