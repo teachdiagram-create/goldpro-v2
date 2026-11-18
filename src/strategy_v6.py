@@ -56,7 +56,14 @@ def detect_v6_signal(df_m5: pd.DataFrame, df_m15: pd.DataFrame) -> dict:
     closed_m15 = df_m15.iloc[:-1]
     last_m15 = closed_m15.iloc[-1]
     ema50_m15 = float(last_m15["ema_fast"]) if "ema_fast" in last_m15 else float(last_m15["close"])
-    ema200_m15 = float(closed_m15["close"].rolling(200).mean().iloc[-1]) if len(closed_m15) >= 200 else ema50_m15
+    
+    # برای EMA200: اگه داده کافی بود، محاسبه کن. وگرنه از EMA100 استفاده کن.
+    if len(closed_m15) >= 200:
+        ema200_m15 = float(closed_m15["close"].rolling(200).mean().iloc[-1])
+    elif len(closed_m15) >= 100:
+        ema200_m15 = float(closed_m15["close"].rolling(100).mean().iloc[-1])  # جایگزین: EMA100
+    else:
+        ema200_m15 = ema50_m15  # اگه حتی ۱۰۰ کندل هم نبود، از EMA50 استفاده کن
 
     structure = detect_market_structure(closed_m15)
 
@@ -68,18 +75,23 @@ def detect_v6_signal(df_m5: pd.DataFrame, df_m15: pd.DataFrame) -> dict:
     ema50_m5 = float(current_m5["ema_fast"]) if "ema_fast" in current_m5 else price
 
     # ─── ۳. تشخیص BOS (Break of Structure) در M5 ───
-    recent_highs = closed_m5["high"].tail(10).values
-    recent_lows = closed_m5["low"].tail(10).values
-    local_high = max(recent_highs) if len(recent_highs) > 0 else price
-    local_low = min(recent_lows) if len(recent_lows) > 0 else price
+    # 🚨 اصلاح: سقف و کف رو از ۱۰ کندل قبل از کندل فعلی حساب می‌کنیم (نه شامل کندل فعلی)
+    if len(closed_m5) >= 11:
+        previous_candles = closed_m5.iloc[-11:-1]  # ۱۰ کندل قبل از کندل فعلی
+        local_high = float(max(previous_candles["high"].values))
+        local_low = float(min(previous_candles["low"].values))
+    else:
+        return None
 
     # ─── ۴. تصمیم‌گیری ───
+    # برای BUY: EMA50 > EMA200 در M15، ساختار صعودی، قیمت بالای EMA50 در M5، و BOS صعودی
     if (ema50_m15 > ema200_m15 and structure["trend"] == "UP" 
         and price > ema50_m5 and price > local_high):
         
+        # فیلتر دیرهنگام: فاصله از EMA50 نباید بیشتر از 1.5x ATR باشه
         distance_from_ema = abs(price - ema50_m5)
         if distance_from_ema > 1.5 * atr_:
-            return None
+            return None  # ورود دیرهنگام
         
         return {
             "pattern": "v6_structure_buy",
@@ -92,6 +104,7 @@ def detect_v6_signal(df_m5: pd.DataFrame, df_m15: pd.DataFrame) -> dict:
             "local_low": round(local_low, 2),
         }
 
+    # برای SELL: EMA50 < EMA200 در M15، ساختار نزولی، قیمت زیر EMA50 در M5، و BOS نزولی
     if (ema50_m15 < ema200_m15 and structure["trend"] == "DOWN" 
         and price < ema50_m5 and price < local_low):
         
