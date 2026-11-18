@@ -23,7 +23,7 @@ USE_GIST = bool(GH_GIST_ID and GH_PAT)
 # ==== Market ====
 SYMBOL = "XAU/USD"
 DXY_SYMBOL = "DX-Y.NYB"  
-OUTPUT_SIZE = 200
+OUTPUT_SIZE = 300
 TIMEFRAMES = ["5min", "15min"]
 
 
