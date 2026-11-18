@@ -130,7 +130,6 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         "time": dt_str,
     }
 
-    # لیست برای ذخیره سیگنال‌های معتبر
     valid_signals = []
 
     # ─── استراتژی ۰: NY ORB BREAKOUT ───
@@ -150,7 +149,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
             tp = round(price - tp_dist, 2)
             sl = round(sl_price, 2)
         
-        if sl_dist >= 1.0 and sl_dist <= 10.0:
+        if 1.0 <= sl_dist <= 10.0: # اینجا هم فقط شرط رو چک می‌کنیم، return نمی‌کنیم
             rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
             q = _compute_quality(adx_, atr_, rsi_, side, "NY_BREAKOUT")
             valid_signals.append({
@@ -161,7 +160,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                 "quality": q,
                 "reason": _build_reason(ny_signal, side, "NY_BREAKOUT"),
                 "valid": True,
-                "_score": q["score"]  # برای مقایسه
+                "_score": q["score"]
             })
 
     # ─── استراتژی V6: STRUCTURE + EMA + ATR ───
@@ -171,7 +170,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         if side == "BUY":
             sl_price = v6_signal["local_low"] - (0.5 * atr_)
             sl_dist = price - sl_price
-            if 1.0 <= sl_dist <= 15.0:
+            if 1.0 <= sl_dist <= 15.0: # 🚨 اصلاح شد: به جای return None، فقط شرط رو چک می‌کنیم
                 tp_dist = sl_dist * 1.5
                 tp = round(price + tp_dist, 2)
                 sl = round(sl_price, 2)
@@ -318,11 +317,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     if not valid_signals:
         return None
 
-    # مرتب‌سازی بر اساس امتیاز کیفیت (بیشترین به کمترین)
     valid_signals.sort(key=lambda x: x["_score"], reverse=True)
-    
-    # برگرداندن بهترین سیگنال (و حذف فیلد کمکی _score)
     best_signal = valid_signals[0]
     del best_signal["_score"]
-    
     return best_signal
