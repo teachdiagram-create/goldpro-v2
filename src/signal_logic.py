@@ -39,7 +39,7 @@ def _is_market_closed_or_opening(dt_str: str) -> bool:
 
 def _compute_quality(adx_val: float, atr_val: float, rsi_val: float, 
                      side: str, strategy: str, divergence: bool = False) -> dict:
-    # ... (همون کد وزنی که تو پیام قبل دادم - دست نمی‌زنیم)
+    # ... (همون کد وزنی که تو پیام‌های قبل دادم)
     score = 50
     flags = []
     warnings = []
@@ -122,7 +122,6 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     if _is_market_closed_or_opening(dt_str):
         return None
 
-    # ─── 🚨 اصلاح: استفاده از زمان کندل به جای زمان الان ───
     timestamp_id = closed_time.strftime("%Y%m%d-%H%M")
 
     base = {
@@ -134,10 +133,6 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
     }
 
     valid_signals = []
-
-    # ... (همه‌ی استراتژی‌های NY Breakout، V6، Correlation، Range، Trend، Ichimoku - دقیقاً همون کدهایی که تو پیام قبلی دادم، فقط بخش‌های `f"X-{timestamp_id}"` حالا از timestamp_id جدید استفاده می‌کنن)
-
-    # برای brevity، فقط ساختار کلی رو می‌نویسم. کد کامل همون کد پیام قبلیه، فقط timestamp_id عوض شده.
 
     # ─── استراتژی ۰: NY ORB BREAKOUT ───
     ny_signal = detect_ny_breakout_signal(df_m5)
@@ -161,7 +156,6 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
             q = _compute_quality(adx_, atr_, rsi_, side, "NY_BREAKOUT")
             valid_signals.append({
                 **base, "signal_id": f"N-{timestamp_id}",
-                # ... بقیه
                 "side": side, "entry": round(price, 2),
                 "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": rr,
                 "strategy": "NY_BREAKOUT",
@@ -171,7 +165,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                 "_score": q["score"]
             })
 
-    # ─── استراتژی V6: STRUCTURE + EMA + ATR ───
+    # ─── استراتژی V6 ───
     v6_signal = detect_v6_signal(df_m5, df_m15)
     if v6_signal:
         side = v6_signal["direction"]
@@ -216,7 +210,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                         "_score": q["score"]
                     })
 
-    # ─── استراتژی ۱: CORRELATION ───
+    # ─── استراتژی CORRELATION ───
     if df_dxy_m5 is not None and len(df_dxy_m5) > 20 and df_m15 is not None:
         hour_ok, _ = check_trading_hours(dt_str)
         news_blocked, _ = check_news_blackout(dt_str)
@@ -242,7 +236,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                         "_score": q["score"]
                     })
 
-    # ─── استراتژی ۲: RANGE ───
+    # ─── استراتژی RANGE ───
     if adx_ < 30:
         sell_setup = detect_double_top_sell(rsi_series_m5)
         if sell_setup:
@@ -278,7 +272,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                     "_score": q["score"]
                 })
 
-    # ─── استراتژی ۳: TREND ───
+    # ─── استراتژی TREND ───
     trend_signal = detect_trend_signal(closed_m5)
     if trend_signal:
         side = trend_signal["direction"]
@@ -296,7 +290,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                 "_score": q["score"]
             })
 
-    # ─── استراتژی ۴: ICHIMOKU ───
+    # ─── استراتژی ICHIMOKU ───
     ichi_signal = detect_ichimoku_signal(df_m5)
     if ichi_signal:
         side = ichi_signal["direction"]
@@ -321,10 +315,20 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
             "_score": q["score"]
         })
 
-    # ─── انتخاب بهترین سیگنال ───
+    # ─── 🚨 انتخاب بهترین سیگنال با بررسی جهت‌های متناقض ───
     if not valid_signals:
         return None
 
+    # ۱. بررسی اینکه آیا سیگنال‌های متناقض وجود دارن
+    buy_signals = [s for s in valid_signals if s["side"] == "BUY"]
+    sell_signals = [s for s in valid_signals if s["side"] == "SELL"]
+
+    if buy_signals and sell_signals:
+        # 🚨 سیگنال‌های متناقض داریم: هیچ‌کدوم رو انتخاب نکن (محافظه‌کارانه)
+        print(f"⚠️ Contradictory signals detected: {len(buy_signals)} BUY vs {len(sell_signals)} SELL - Skipping")
+        return None
+
+    # ۲. اگه همه هم‌جهت بودن، بهترین رو انتخاب کن
     valid_signals.sort(key=lambda x: x["_score"], reverse=True)
     best_signal = valid_signals[0]
     del best_signal["_score"]
