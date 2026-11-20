@@ -51,6 +51,7 @@
   .strat-card.ichimoku { border-top: 4px solid #f43f5e; }
   .strat-card.ny-breakout { border-top: 4px solid #22c55e; }
   .strat-card.v6-structure { border-top: 4px solid #8b5cf6; }
+  .strat-card.trend-hunter { border-top: 4px solid #f97316; }
   .strat-title { font-size: 0.9rem; font-weight: 800; margin-bottom: 8px; }
   .strat-wr { font-size: 1.5rem; font-weight: 800; margin-bottom: 4px; }
   .strat-detail { font-size: 0.75rem; color: #8892b0; }
@@ -72,12 +73,14 @@
   .badge.win { background: rgba(74, 222, 128, 0.2); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.4); }
   .badge.loss { background: rgba(248, 113, 113, 0.2); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.4); }
   .badge.open { background: rgba(255, 215, 0, 0.15); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.3); }
+<style>
   .badge.range { background: rgba(167, 139, 250, 0.15); color: #a78bfa; border: 1px solid rgba(167, 139, 250, 0.3); }
   .badge.trend { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
   .badge.correlation { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
   .badge.ichimoku { background: rgba(244, 63, 94, 0.15); color: #f43f5e; border: 1px solid rgba(244, 63, 94, 0.3); }
   .badge.ny-breakout { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
   .badge.v6-structure { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.3); }
+  .badge.trend-hunter { background: rgba(249, 115, 22, 0.15); color: #f97316; border: 1px solid rgba(249, 115, 22, 0.3); }
 <style>
   .empty { text-align: center; padding: 40px 20px; color: #8892b0; font-size: 0.95rem; }
   footer { text-align: center; padding: 30px 0; color: #4a5578; font-size: 0.85rem; }
@@ -86,6 +89,7 @@
   .modal-overlay.active { display: flex; }
   .modal { background: linear-gradient(135deg, #141a2e 0%, #1a1f35 100%); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 20px; max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 28px; position: relative; }
   .modal-close { position: absolute; top: 16px; left: 16px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #e8ecf5; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+<style>
   .modal-header { text-align: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid rgba(255, 215, 0, 0.15); }
   .modal-section { margin-bottom: 20px; }
   .modal-section h4 { font-size: 0.85rem; color: #8892b0; text-transform: uppercase; margin-bottom: 12px; }
@@ -97,6 +101,7 @@
   .price-item { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 12px; padding: 14px 10px; text-align: center; }
   .price-item .label { font-size: 0.75rem; color: #8892b0; margin-bottom: 6px; }
   .price-item .value { font-size: 1.1rem; font-weight: 800; }
+<style>
   #button-bar { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 9999; padding: 8px; background: rgba(10, 14, 26, 0.85); border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 999px; }
   #notify-btn { background: linear-gradient(135deg, #ffd700, #f5b041); color: #0a0e1a; border: none; padding: 8px 14px; border-radius: 999px; font-family: Vazirmatn, sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
   #test-sound-btn { background: rgba(255, 215, 0, 0.15); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.4); padding: 8px 14px; border-radius: 999px; font-family: Vazirmatn, sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
@@ -142,11 +147,11 @@
   <div class="chart-box"><h3>🏆 برد vs باخت</h3><div class="chart-wrap"><canvas id="resultChart"></canvas></div></div>
   <div class="chart-box"><h3>⏱️ توزیع تایم‌فریم</h3><div class="chart-wrap"><canvas id="tfChart"></canvas></div></div>
 </div>
-  <div class="card">
-    <h2>📈 روند رشد سرمایه (Equity Curve)</h2>
-    <div class="chart-wrap" style="height: 300px;"><canvas id="equityChart"></canvas></div>
-    <div class="equity-stats" id="equity-stats"></div>
-  </div>
+<div class="card">
+  <h2>📈 روند رشد سرمایه (Equity Curve)</h2>
+  <div class="chart-wrap" style="height: 300px;"><canvas id="equityChart"></canvas></div>
+  <div class="equity-stats" id="equity-stats"></div>
+</div>
   <div class="card">
     <h2 style="display:flex; justify-content:space-between; align-items:center;">📋 سیگنال‌های اخیر<button class="refresh-btn" onclick="loadData()">🔄 بروزرسانی</button></h2>
     <div id="table-wrap"><div class="empty">⏳ در حال بارگذاری...</div></div>
@@ -157,14 +162,12 @@
   <button id="notify-btn" onclick="initNotification()">🔔 فعال‌سازی نوتیفیکیشن</button>
   <button id="test-sound-btn" onclick="testSoundAndVibrate()">🔊 تست صدا</button>
 </div>
-
 <div class="modal-overlay" id="modal" onclick="closeModal(event)">
   <div class="modal" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="closeModal()">✕</button>
     <div id="modal-content"></div>
   </div>
 </div>
-
 <div class="modal-overlay" id="list-modal" onclick="closeListModal(event)">
   <div class="modal" onclick="event.stopPropagation()" style="max-width: 700px;">
     <button class="modal-close" onclick="closeListModal()">✕</button>
@@ -193,6 +196,7 @@ function initAudioContext() { if (!audioContext) { audioContext = new (window.Au
 function playSignalAlarm() { try { const ctx = initAudioContext(); const now = ctx.currentTime; for (let round = 0; round < 3; round++) { const offset = round * 0.8; const beeps = [{ start: offset, duration: 0.15, freq: 880 }, { start: offset + 0.2, duration: 0.15, freq: 1100 }, { start: offset + 0.4, duration: 0.25, freq: 1320 }]; beeps.forEach(beep => { const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); osc.frequency.value = beep.freq; osc.type = 'sine'; gain.gain.setValueAtTime(0, now + beep.start); gain.gain.linearRampToValueAtTime(1.0, now + beep.start + 0.02); gain.gain.linearRampToValueAtTime(0, now + beep.start + beep.duration); osc.start(now + beep.start); osc.stop(now + beep.start + beep.duration); }); } } catch (e) { console.log('Sound failed:', e); } }
 function testSoundAndVibrate() { initAudioContext(); playSignalAlarm(); if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 400]); }
 async function initNotification() { if (!("Notification" in window)) { alert("مرورگر شما از نوتیفیکیشن پشتیبانی نمی‌کنه"); return; } const perm = await Notification.requestPermission(); if (perm === "granted") { document.getElementById("notify-btn").textContent = "🔔 نوتیفیکیشن فعال"; document.getElementById("notify-btn").style.background = "linear-gradient(135deg, #4ade80, #22c55e)"; new Notification("✅ GoldPro", { body: "نوتیفیکیشن فعال شد." }); localStorage.setItem("notify_enabled", "1"); } }
+
 async function loadData() {
   setStatus("⏳ در حال بارگذاری...");
   try {
@@ -223,7 +227,6 @@ function checkForNewSignals(history) {
     lastSeenSentAt = latest.sent_at; localStorage.setItem("last_seen_sent_at", lastSeenSentAt);
   }
 }
-
 function renderStats(history) {
   const total = history.length, wins = history.filter(t => t.result === "WIN").length, losses = history.filter(t => t.result === "LOSS").length, opens = history.filter(t => !t.result).length;
   const closed = wins + losses;
@@ -242,9 +245,9 @@ function renderStats(history) {
   document.getElementById("profit-factor").textContent = pf;
   if (history[0]) document.getElementById("last-time").textContent = formatTime(history[0].sent_at);
 
-  const strategies = ["RANGE", "TREND", "CORRELATION", "ICHIMOKU", "NY_BREAKOUT", "V6_STRUCTURE"];
-  const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku", NY_BREAKOUT: "🗽 NY Breakout", V6_STRUCTURE: "🏗️ V6 Structure" };
-  const classes = { RANGE: "range", TREND: "trend", CORRELATION: "correlation", ICHIMOKU: "ichimoku", NY_BREAKOUT: "ny-breakout", V6_STRUCTURE: "v6-structure" };
+  const strategies = ["RANGE", "TREND", "CORRELATION", "ICHIMOKU", "NY_BREAKOUT", "V6_STRUCTURE", "TREND_HUNTER"];
+  const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku", NY_BREAKOUT: "🗽 NY Breakout", V6_STRUCTURE: "🏗️ V6 Structure", TREND_HUNTER: "🎯 Trend Hunter" };
+  const classes = { RANGE: "range", TREND: "trend", CORRELATION: "correlation", ICHIMOKU: "ichimoku", NY_BREAKOUT: "ny-breakout", V6_STRUCTURE: "v6-structure", TREND_HUNTER: "trend-hunter" };
   let stratHtml = "";
   strategies.forEach(strat => {
     const trades = history.filter(t => (t.strategy || "RANGE") === strat);
@@ -260,6 +263,7 @@ function renderStats(history) {
   const container = document.getElementById("strategy-stats");
   if (container) container.innerHTML = stratHtml;
 }
+
 function renderTable(history) {
   if (!history.length) { document.getElementById("table-wrap").innerHTML = '<div class="empty">📭 هنوز سیگنالی ثبت نشده</div>'; return; }
   let html = `<table><thead><tr><th>زمان</th><th>استراتژی</th><th>نوع</th><th>کیفیت</th><th>نتیجه</th><th class="hide-mobile">ورود</th></tr></thead><tbody>`;
@@ -271,6 +275,7 @@ function renderTable(history) {
     if (strategy === "ICHIMOKU") strategyHtml = '<span class="badge ichimoku">☁️ Ichimoku</span>';
     if (strategy === "NY_BREAKOUT") strategyHtml = '<span class="badge ny-breakout">🗽 NY Breakout</span>';
     if (strategy === "V6_STRUCTURE") strategyHtml = '<span class="badge v6-structure">🏗️ V6 Structure</span>';
+    if (strategy === "TREND_HUNTER") strategyHtml = '<span class="badge trend-hunter">🎯 Trend Hunter</span>';
     let gradeHtml = "—";
     if (t.quality && t.quality.grade) { const g = t.quality.grade; gradeHtml = `<span class="badge grade-${g}">${t.quality.score} ${g}</span>`; }
     html += `<tr onclick="showDetails(${i})"><td>${formatTime(t.sent_at)}</td><td>${strategyHtml}</td><td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${t.side}</span></td><td>${gradeHtml}</td><td>${getResultBadge(t.result)}</td><td class="hide-mobile">${t.entry || '—'}</td></tr>`;
@@ -305,6 +310,7 @@ function showDetails(index) {
   if (strategy === "ICHIMOKU") strategyLabel = "☁️ Ichimoku";
   if (strategy === "NY_BREAKOUT") strategyLabel = "🗽 NY Breakout";
   if (strategy === "V6_STRUCTURE") strategyLabel = "🏗️ V6 Structure";
+  if (strategy === "TREND_HUNTER") strategyLabel = "🎯 Trend Hunter";
   let qualityHtml = "";
   if (t.quality) { const q = t.quality; const gradeEmoji = {A: "🏆", B: "✅", C: "⚠️", D: "🚫"}[q.grade] || "❔"; qualityHtml = `<div class="modal-section"><h4>⭐ کیفیت سیگنال</h4><div class="result-box ${q.grade === 'A' || q.grade === 'B' ? 'win' : 'open'}" style="font-size: 1.1rem; padding: 12px;">${gradeEmoji} امتیاز: ${q.score}/100 — گرید: ${q.grade}</div></div>`; }
   const rr = t.rr ? ` (R:R 1:${t.rr})` : "";
@@ -316,7 +322,7 @@ function showDetails(index) {
 function closeModal(e) { if (!e || e.target.id === "modal" || e.target.classList.contains("modal-close")) { document.getElementById("modal").classList.remove("active"); } }
 
 function showStrategyList(strategy) {
-  const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku", NY_BREAKOUT: "🗽 NY Breakout", V6_STRUCTURE: "🏗️ V6 Structure" };
+  const names = { RANGE: "🔄 Range", TREND: "📈 Trend", CORRELATION: "📊 Correlation", ICHIMOKU: "☁️ Ichimoku", NY_BREAKOUT: "🗽 NY Breakout", V6_STRUCTURE: "🏗️ V6 Structure", TREND_HUNTER: "🎯 Trend Hunter" };
   document.getElementById("list-modal-title").textContent = `سیگنال‌های ${names[strategy] || strategy}`;
   const filtered = currentHistory.filter(t => (t.strategy || "RANGE") === strategy);
   renderListContent(filtered);
@@ -340,6 +346,7 @@ function renderListContent(trades) {
     if (strategy === "ICHIMOKU") strategyHtml = '<span class="badge ichimoku">☁️</span>';
     if (strategy === "NY_BREAKOUT") strategyHtml = '<span class="badge ny-breakout">🗽</span>';
     if (strategy === "V6_STRUCTURE") strategyHtml = '<span class="badge v6-structure">🏗️</span>';
+    if (strategy === "TREND_HUNTER") strategyHtml = '<span class="badge trend-hunter">🎯</span>';
     html += `<tr onclick="showDetailsFromList(${currentHistory.indexOf(t)})"><td>${formatTime(t.sent_at)}</td><td>${strategyHtml}</td><td><span class="badge ${t.side === 'BUY' ? 'buy' : 'sell'}">${t.side}</span></td><td>${getResultBadge(t.result)}</td><td>${t.entry || '—'}</td></tr>`;
   });
   container.innerHTML = html + "</tbody></table>";
