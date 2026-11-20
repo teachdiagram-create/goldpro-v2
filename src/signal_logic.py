@@ -20,6 +20,7 @@ from src.strategy_correlation import (
 from src.strategy_ichimoku import detect_ichimoku_signal
 from src.strategy_ny_breakout import detect_ny_breakout_signal
 from src.strategy_v6 import detect_v6_signal
+from src.strategy_trend_hunter import detect_trend_hunter_signal
 
 
 def _is_market_closed_or_opening(dt_str: str) -> bool:
@@ -39,7 +40,6 @@ def _is_market_closed_or_opening(dt_str: str) -> bool:
 
 def _compute_quality(adx_val: float, atr_val: float, rsi_val: float, 
                      side: str, strategy: str, divergence: bool = False) -> dict:
-    # ... (همون کد وزنی که تو پیام‌های قبل دادم)
     score = 50
     flags = []
     warnings = []
@@ -62,7 +62,7 @@ def _compute_quality(adx_val: float, atr_val: float, rsi_val: float,
         if strategy == "RANGE":
             if side == "SELL" and rsi_val <= 65: score += 10; flags.append("RSI تأیید می‌کند")
             elif side == "BUY" and rsi_val >= 35: score += 10; flags.append("RSI تأیید می‌کند")
-        elif strategy in ("TREND", "CORRELATION", "ICHIMOKU", "NY_BREAKOUT", "V6_STRUCTURE"):
+        elif strategy in ("TREND", "CORRELATION", "ICHIMOKU", "NY_BREAKOUT", "V6_STRUCTURE", "TREND_HUNTER"):
             if side == "BUY" and 40 <= rsi_val <= 70: score += 10; flags.append("RSI در محدوده")
             elif side == "SELL" and 30 <= rsi_val <= 60: score += 10; flags.append("RSI در محدوده")
 
@@ -79,7 +79,6 @@ def _compute_quality(adx_val: float, atr_val: float, rsi_val: float,
 
 
 def _build_reason(setup: dict, side: str, strategy: str) -> str:
-    # ... (همون کد قبلی)
     if strategy == "RANGE":
         if side == "SELL":
             return f"RSI double top: {setup.get('peak1_value')} -> {setup.get('peak2_value')}"
@@ -95,6 +94,8 @@ def _build_reason(setup: dict, side: str, strategy: str) -> str:
         return f"NY ORB {side}: Range {setup.get('range_low')}-{setup.get('range_high')}"
     elif strategy == "V6_STRUCTURE":
         return f"V6 Structure {side}: Trend {setup.get('structure_trend')}"
+    elif strategy == "TREND_HUNTER":
+        return f"Trend Hunter {side}: Strong trend + Pullback"
     return f"{side} signal"
 
 
@@ -165,7 +166,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                 "_score": q["score"]
             })
 
-    # ─── استراتژی V6 ───
+    # ─── استراتژی V6: STRUCTURE + EMA + ATR ───
     v6_signal = detect_v6_signal(df_m5, df_m15)
     if v6_signal:
         side = v6_signal["direction"]
@@ -210,7 +211,29 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                         "_score": q["score"]
                     })
 
-    # ─── استراتژی CORRELATION ───
+    # ─── استراتژی TREND HUNTER ───
+    th_signal = detect_trend_hunter_signal(df_m5, df_m15)
+    if th_signal:
+        side = th_signal["direction"]
+        sl = th_signal["sl"]
+        tp = th_signal["tp"]
+        sd = th_signal["sl_distance"]
+        td = th_signal["tp_distance"]
+        rr = th_signal["rr"]
+        
+        q = _compute_quality(adx_, atr_, rsi_, side, "TREND_HUNTER")
+        valid_signals.append({
+            **base, "signal_id": f"TH-{timestamp_id}",
+            "side": side, "entry": round(price, 2),
+            "sl": sl, "tp": tp, "sl_distance": sd, "tp_distance": td, "rr": rr,
+            "strategy": "TREND_HUNTER",
+            "quality": q,
+            "reason": _build_reason(th_signal, side, "TREND_HUNTER"),
+            "valid": True,
+            "_score": q["score"]
+        })
+
+    # ─── استراتژی ۱: CORRELATION ───
     if df_dxy_m5 is not None and len(df_dxy_m5) > 20 and df_m15 is not None:
         hour_ok, _ = check_trading_hours(dt_str)
         news_blocked, _ = check_news_blackout(dt_str)
@@ -236,7 +259,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                         "_score": q["score"]
                     })
 
-    # ─── استراتژی RANGE ───
+    # ─── استراتژی ۲: RANGE ───
     if adx_ < 30:
         sell_setup = detect_double_top_sell(rsi_series_m5)
         if sell_setup:
@@ -272,7 +295,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                     "_score": q["score"]
                 })
 
-    # ─── استراتژی TREND ───
+    # ─── استراتژی ۳: TREND ───
     trend_signal = detect_trend_signal(closed_m5)
     if trend_signal:
         side = trend_signal["direction"]
@@ -290,7 +313,7 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                 "_score": q["score"]
             })
 
-    # ─── استراتژی ICHIMOKU ───
+    # ─── استراتژی ۴: ICHIMOKU ───
     ichi_signal = detect_ichimoku_signal(df_m5)
     if ichi_signal:
         side = ichi_signal["direction"]
@@ -315,20 +338,17 @@ def evaluate_signal(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
             "_score": q["score"]
         })
 
-    # ─── 🚨 انتخاب بهترین سیگنال با بررسی جهت‌های متناقض ───
+    # ─── انتخاب بهترین سیگنال با بررسی جهت‌های متناقض ───
     if not valid_signals:
         return None
 
-    # ۱. بررسی اینکه آیا سیگنال‌های متناقض وجود دارن
     buy_signals = [s for s in valid_signals if s["side"] == "BUY"]
     sell_signals = [s for s in valid_signals if s["side"] == "SELL"]
 
     if buy_signals and sell_signals:
-        # 🚨 سیگنال‌های متناقض داریم: هیچ‌کدوم رو انتخاب نکن (محافظه‌کارانه)
         print(f"⚠️ Contradictory signals detected: {len(buy_signals)} BUY vs {len(sell_signals)} SELL - Skipping")
         return None
 
-    # ۲. اگه همه هم‌جهت بودن، بهترین رو انتخاب کن
     valid_signals.sort(key=lambda x: x["_score"], reverse=True)
     best_signal = valid_signals[0]
     del best_signal["_score"]
