@@ -136,6 +136,7 @@ def mark_sent(signal: dict, state: dict) -> dict:
         "adx": signal.get("adx"),
         "atr": signal.get("atr"),
         "reason": signal.get("reason"),
+        "signal_time": signal.get("signal_time", now),
         "sent_at": now,
         "result": None,
         "exit_price": None,
