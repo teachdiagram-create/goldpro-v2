@@ -68,13 +68,14 @@ TP_ICHI_MULT = 2.5   # TP: 2.5 برابر ATR
 # ==============================================================
 #  Quality Filter
 # ==============================================================
-ALLOWED_GRADES = ["A", "B"]
+# ==== Signal filters ====
+ALLOWED_GRADES = ["A", "B", "C", "D"] 
 
 # ==============================================================
 #  Risk Management
 # ==============================================================
 MAX_OPEN_TRADES = 1
-SIGNAL_COOLDOWN_MIN = 60
+SIGNAL_COOLDOWN_MIN = 15
 
 # ==== Trade Tracking ====
 TRADE_CHECK_MAX_BARS = 200   # حداکثر کندلی که برای چک کردن SL/TP بررسی می‌شه
