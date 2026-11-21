@@ -6,10 +6,6 @@ import pandas as pd
 
 
 def check_trade_result(trade: dict, df) -> dict:
-    """
-    یه معامله باز رو با داده جدید چک می‌کنه.
-    اگه TP یا SL خورده باشه، نتیجه رو برمی‌گردونه.
-    """
     if trade.get("result"):
         return trade
 
@@ -35,8 +31,9 @@ def check_trade_result(trade: dict, df) -> dict:
     
     if df["datetime"].dt.tz is None:
         df["datetime"] = df["datetime"].dt.tz_localize(signal_dt.tzinfo)
-        
-    new_candles = df[df["datetime"] > signal_dt]
+    
+    # 🚨 اصلاح: از >= استفاده می‌کنیم تا اولین کندل بعد از سیگنال هم بررسی بشه
+    new_candles = df[df["datetime"] >= signal_dt]
 
     if len(new_candles) == 0:
         return trade
@@ -47,8 +44,6 @@ def check_trade_result(trade: dict, df) -> dict:
         open_price = float(candle["open"])
         candle_dt = str(candle["datetime"])
 
-        # ─── بررسی گپ قیمت (Gap) ───
-        # اگه کندل با گپ باز شده باشه و از SL/TP رد شده باشه
         if side == "BUY":
             if open_price <= sl:
                 pnl = open_price - entry
@@ -56,7 +51,7 @@ def check_trade_result(trade: dict, df) -> dict:
             if open_price >= tp:
                 pnl = open_price - entry
                 return {**trade, "result": "WIN", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
-        else:  # SELL
+        else:
             if open_price >= sl:
                 pnl = entry - open_price
                 return {**trade, "result": "LOSS", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
@@ -64,11 +59,8 @@ def check_trade_result(trade: dict, df) -> dict:
                 pnl = entry - open_price
                 return {**trade, "result": "WIN", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
 
-        # ─── بررسی برخورد TP و SL در یک کندل ───
-        # ⚠️ محافظه‌کارانه: اگه هر دو در یه کندل لمس شدن، فرض می‌کنیم SL اول خورده
         if side == "BUY":
             if low <= sl and high >= tp:
-                # بدترین حالت: SL اول خورده
                 pnl = sl - entry
                 return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
             
@@ -80,9 +72,8 @@ def check_trade_result(trade: dict, df) -> dict:
                 pnl = tp - entry
                 return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
 
-        else:  # SELL
+        else:
             if high >= sl and low <= tp:
-                # بدترین حالت: SL اول خورده
                 pnl = entry - sl
                 return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
 
@@ -98,9 +89,6 @@ def check_trade_result(trade: dict, df) -> dict:
 
 
 def update_open_trades(state: dict, dataframes: dict) -> tuple:
-    """
-    همه معاملات باز رو چک می‌کنه و آپدیت می‌کنه.
-    """
     history = state.get("history", [])
     if not history:
         return state, 0
@@ -116,7 +104,6 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
         tf = trade.get("timeframe", "5min")
         symbol = trade.get("symbol", "XAU/USD")
         
-        # پیدا کردن دیتافریم مناسب
         df = None
         key_new = f"{symbol}:{tf}"
         if key_new in dataframes:
@@ -147,9 +134,6 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
 
 
 def calculate_win_stats(history: list) -> dict:
-    """
-    محاسبه آمار برد و باخت.
-    """
     closed = [t for t in history if t.get("result")]
     wins = [t for t in closed if t["result"] == "WIN"]
     losses = [t for t in closed if t["result"] == "LOSS"]
