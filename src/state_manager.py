@@ -54,7 +54,6 @@ def load_state() -> dict:
 
     except Exception as e:
         print(f"[!] load_state error: {e}")
-        # 🚨 علامت خطا می‌ذاریم تا main.py متوجه بشه
         return {
             "last_signals": {}, 
             "history": [], 
@@ -67,7 +66,6 @@ def load_state() -> dict:
 def save_state(state: dict) -> bool:
     """ذخیره state در Gist"""
     try:
-        # اگه state دارای خطای لود بود، ذخیره نکن (برای جلوگیری از پاک شدن تاریخچه)
         if state.get("_load_error"):
             print("[!] save_state skipped: state has load error")
             return False
@@ -156,7 +154,13 @@ def mark_sent(signal: dict, state: dict) -> dict:
     }
 
     state["history"].insert(0, new_trade)
-    state["history"] = state["history"][:MAX_HISTORY]
+    
+    # 🚨 جدا کردن معاملات باز و بسته‌شده (معاملات باز هرگز حذف نمی‌شن)
+    open_trades = [t for t in state["history"] if t.get("result") is None]
+    closed_trades = [t for t in state["history"] if t.get("result") is not None]
+    
+    # نگه‌داری همه‌ی معاملات باز + ۲۰۰ معامله بسته‌شده آخر
+    state["history"] = open_trades + closed_trades[:MAX_HISTORY]
 
     # پاک کردن سیگنال‌های قدیمی‌تر از ۲۴ ساعت
     cutoff = datetime.utcnow() - timedelta(hours=24)
