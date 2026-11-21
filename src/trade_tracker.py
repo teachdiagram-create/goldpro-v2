@@ -2,6 +2,7 @@
 Trade Tracker — پیگیری نتایج معاملات باز و محاسبه آمار
 """
 from datetime import datetime
+from src.config import TRADE_CHECK_MAX_BARS
 import pandas as pd
 
 
@@ -13,13 +14,13 @@ def check_trade_result(trade: dict, df) -> dict:
     entry = trade.get("entry")
     sl = trade.get("sl")
     tp = trade.get("tp")
-    sent_at = trade.get("sent_at")
+    signal_time = trade.get("signal_time") or trade.get("sent_at")
 
-    if not all([entry, sl, tp, sent_at]):
+    if not all([entry, sl, tp, signal_time]):
         return trade
 
     try:
-        signal_dt = datetime.fromisoformat(sent_at)
+        signal_dt = datetime.fromisoformat(signal_time)
         if signal_dt.tzinfo is None:
             signal_dt = signal_dt.replace(tzinfo=pd.Timestamp.now().tz)
     except Exception:
@@ -32,13 +33,25 @@ def check_trade_result(trade: dict, df) -> dict:
     if df["datetime"].dt.tz is None:
         df["datetime"] = df["datetime"].dt.tz_localize(signal_dt.tzinfo)
     
-    # 🚨 اصلاح: از >= استفاده می‌کنیم تا اولین کندل بعد از سیگنال هم بررسی بشه
-    new_candles = df[df["datetime"] >= signal_dt]
+    new_candles = df[df["datetime"] >= signal_dt].reset_index(drop=True)
 
     if len(new_candles) == 0:
         return trade
 
-    for _, candle in new_candles.iterrows():
+    for idx, candle in new_candles.iterrows():
+        # 🚨 بررسی Timeout
+        if idx >= TRADE_CHECK_MAX_BARS:
+            close_price = float(candle["close"])
+            pnl = (close_price - entry) if side == "BUY" else (entry - close_price)
+            return {
+                **trade, 
+                "result": "TIMEOUT", 
+                "exit_price": round(close_price, 2), 
+                "exit_time": str(candle["datetime"]), 
+                "pnl": round(pnl, 2), 
+                "closed_at": datetime.utcnow().isoformat()
+            }
+        
         high = float(candle["high"])
         low = float(candle["low"])
         open_price = float(candle["open"])
@@ -63,24 +76,19 @@ def check_trade_result(trade: dict, df) -> dict:
             if low <= sl and high >= tp:
                 pnl = sl - entry
                 return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
-            
             if low <= sl:
                 pnl = sl - entry
                 return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
-            
             if high >= tp:
                 pnl = tp - entry
                 return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
-
         else:
             if high >= sl and low <= tp:
                 pnl = entry - sl
                 return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
-
             if high >= sl:
                 pnl = entry - sl
                 return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
-                
             if low <= tp:
                 pnl = entry - tp
                 return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
@@ -124,7 +132,7 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
 
         if updated_trade.get("result") and not trade.get("result"):
             updated_count += 1
-            emoji = "✅" if updated_trade["result"] == "WIN" else "❌"
+            emoji = "✅" if updated_trade["result"] == "WIN" else "❌" if updated_trade["result"] == "LOSS" else "⏰"
             print(f"  {emoji} Trade closed: {symbol} {tf} {trade['side']} -> {updated_trade['result']} ({updated_trade['pnl']:+.2f})")
 
         new_history.append(updated_trade)
@@ -137,6 +145,7 @@ def calculate_win_stats(history: list) -> dict:
     closed = [t for t in history if t.get("result")]
     wins = [t for t in closed if t["result"] == "WIN"]
     losses = [t for t in closed if t["result"] == "LOSS"]
+    timeouts = [t for t in closed if t["result"] == "TIMEOUT"]
 
     total_pnl = sum(t.get("pnl", 0) for t in closed)
     total_win_pnl = sum(t.get("pnl", 0) for t in wins)
@@ -149,6 +158,7 @@ def calculate_win_stats(history: list) -> dict:
         "closed": len(closed),
         "wins": len(wins),
         "losses": len(losses),
+        "timeouts": len(timeouts),
         "win_rate": win_rate,
         "total_pnl": round(total_pnl, 2),
         "avg_win": round(total_win_pnl / len(wins), 2) if wins else 0,
