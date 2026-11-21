@@ -2,15 +2,25 @@ import requests
 from src.config import NTFY_TOPIC, NTFY_ENABLED
 
 
+def _get_strategy_name(strategy: str) -> str:
+    names = {
+        "RANGE": "🔄 Range",
+        "TREND": "📈 Trend",
+        "CORRELATION": "📊 Correlation",
+        "ICHIMOKU": "☁️ Ichimoku",
+        "NY_BREAKOUT": "🗽 NY Breakout",
+        "V6_STRUCTURE": "🏗️ V6 Structure",
+        "TREND_HUNTER": "🎯 Trend Hunter",
+    }
+    return names.get(strategy, f"❔ {strategy}")
+
+
 def send_signal_ntfy(sig: dict) -> bool:
     if not NTFY_ENABLED:
         return False
 
     strategy = sig.get("strategy", "RANGE")
-    if strategy == "TREND": s_name = "Trend"
-    elif strategy == "CORRELATION": s_name = "Correlation"
-    elif strategy == "ICHIMOKU": s_name = "Ichimoku"
-    else: s_name = "Range"
+    s_name = _get_strategy_name(strategy)
 
     emoji = "🟢" if sig["side"] == "BUY" else "🔴"
     title = f"{emoji} GOLD {sig['side']}"
@@ -40,10 +50,7 @@ def send_trade_closed_ntfy(trade: dict) -> bool:
         return False
 
     strategy = trade.get("strategy", "RANGE")
-    if strategy == "TREND": s_name = "Trend"
-    elif strategy == "CORRELATION": s_name = "Correlation"
-    elif strategy == "ICHIMOKU": s_name = "Ichimoku"
-    else: s_name = "Range"
+    s_name = _get_strategy_name(strategy)
 
     result = trade.get("result")
     pnl = trade.get("pnl", 0)
