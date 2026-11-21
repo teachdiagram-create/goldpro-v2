@@ -8,23 +8,46 @@ import pandas as pd
 def check_correlation(df_gold, df_dxy, window: int = 20) -> tuple[bool, float]:
     """
     بررسی همبستگی منفی بین طلا و دلار.
-    دیتافریم‌ها بر اساس زمان merge می‌شن تا همبستگی دقیق‌تر باشه.
+    دیتافریم‌ها به UTC تبدیل و بر اساس بازه‌های ۵ دقیقه‌ای هم‌تراز می‌شن.
     """
     if df_dxy is None or len(df_dxy) < window or len(df_gold) < window:
         return False, 0.0
 
     try:
-        gold = df_gold[["datetime", "close"]].tail(window + 5).copy()
-        dxy = df_dxy[["datetime", "close"]].tail(window + 5).copy()
+        gold = df_gold[["datetime", "close"]].tail(window + 10).copy()
+        dxy = df_dxy[["datetime", "close"]].tail(window + 10).copy()
         
+        # تبدیل به datetime
         gold["datetime"] = pd.to_datetime(gold["datetime"])
         dxy["datetime"] = pd.to_datetime(dxy["datetime"])
         
-        merged = pd.merge(gold, dxy, on="datetime", suffixes=("_gold", "_dxy"))
+        # تبدیل به UTC
+        if gold["datetime"].dt.tz is None:
+            gold["datetime"] = gold["datetime"].dt.tz_localize("UTC")
+        else:
+            gold["datetime"] = gold["datetime"].dt.tz_convert("UTC")
+        
+        if dxy["datetime"].dt.tz is None:
+            dxy["datetime"] = dxy["datetime"].dt.tz_localize("UTC")
+        else:
+            dxy["datetime"] = dxy["datetime"].dt.tz_convert("UTC")
+        
+        # 🚨 هم‌ترازی: زمان‌ها رو به نزدیک‌ترین ۵ دقیقه گرد می‌کنیم
+        gold["time_5m"] = gold["datetime"].dt.floor("5min")
+        dxy["time_5m"] = dxy["datetime"].dt.floor("5min")
+        
+        # merge بر اساس زمان ۵ دقیقه‌ای
+        merged = pd.merge(
+            gold[["time_5m", "close"]], 
+            dxy[["time_5m", "close"]], 
+            on="time_5m", 
+            suffixes=("_gold", "_dxy")
+        )
         
         if len(merged) < 10:
             return False, 0.0
         
+        # محاسبه درصد تغییرات
         gold_ret = merged["close_gold"].pct_change().dropna()
         dxy_ret = merged["close_dxy"].pct_change().dropna()
         
