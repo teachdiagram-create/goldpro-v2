@@ -2,7 +2,7 @@ from datetime import datetime
 from src.config import TIMEFRAMES, USE_GIST, ALLOWED_GRADES, MAX_OPEN_TRADES
 from src.data_fetcher import fetch_ohlc, fetch_dxy_yfinance
 from src.indicators import add_indicators
-from src.signal_logic import evaluate_signal
+from src.signal_logic import evaluate_all_signals
 from src.telegram_bot import send_telegram, format_message, format_win_message, format_loss_message
 from src.notifier import send_signal_ntfy, send_trade_closed_ntfy
 from src.sms_sender import send_signal_sms, send_win_sms
@@ -53,50 +53,62 @@ def process_timeframes(state, dataframes):
         print(f"⚠️ DXY fetch failed - Correlation disabled: {e}")
         df_dxy = None
 
-    signal = evaluate_signal(df_m5, df_m15, df_dxy, df_dxy)
+    # 🚨 حالا لیستی از سیگنال‌ها رو می‌گیریم (نه فقط یکی)
+    signals = evaluate_all_signals(df_m5, df_m15, df_dxy, df_dxy)
 
-    if signal is None:
+    if not signals:
         print(f"⏸ NO SIGNAL (no valid pattern)")
         return state, False
 
-    grade = signal["quality"]["grade"]
-    score = signal["quality"]["score"]
-    strategy = signal["strategy"]
-    
-    print(f"✅ SIGNAL: {strategy} {signal['side']} @ {signal['entry']} | Grade={grade} Score={score}")
-    print(f"   🆔 ID: {signal.get('signal_id', 'N/A')} | Time: {signal.get('time')} UTC")
+    print(f"📊 Found {len(signals)} valid signal(s)")
+    state_changed = False
 
-    if grade not in ALLOWED_GRADES:
-        print(f"🚫 Grade {grade} not in {ALLOWED_GRADES}, skipped")
-        return state, False
+    # 🚨 روی هر سیگنال جداگانه حلقه می‌زنیم
+    for signal in signals:
+        grade = signal["quality"]["grade"]
+        score = signal["quality"]["score"]
+        strategy = signal["strategy"]
+        
+        print(f"\n  ✅ CANDIDATE: {strategy} {signal['side']} @ {signal['entry']} | Grade={grade} Score={score}")
 
-    allowed, reason = can_open_trade(state, strategy, max_open=MAX_OPEN_TRADES)
-    if not allowed:
-        print(f"🚫 {reason} - skipped")
-        return state, False
+        # ─── فیلتر ۱: Quality ───
+        if grade not in ALLOWED_GRADES:
+            print(f"    🚫 Grade {grade} not in {ALLOWED_GRADES}, skipped")
+            continue
 
-    if not should_send(signal, state):
-        print(f"⏸ Cooldown active, skipped")
-        return state, False
+        # ─── فیلتر ۲: ترید باز برای همین استراتژی ───
+        allowed, reason = can_open_trade(state, strategy, max_open=MAX_OPEN_TRADES)
+        if not allowed:
+            print(f"    🚫 {reason} - skipped")
+            continue
 
-    ok = send_telegram(format_message(signal), with_dashboard_button=True)
-    if ok:
-        state = mark_sent(signal, state)
-        print(f"📨 Telegram sent")
-        try:
-            if send_signal_ntfy(signal):
-                print(f"🔔 Ntfy sent")
-        except Exception as e:
-            print(f"⚠️ Ntfy error: {e}")
-        try:
-            if send_signal_sms(signal):
-                print(f"📲 SMS sent")
-        except Exception as e:
-            print(f"⚠️ SMS error: {e}")
-        return state, True
-    else:
-        print(f"❌ Telegram failed")
-        return state, False
+        # ─── فیلتر ۳: Cooldown برای همین استراتژی ───
+        if not should_send(signal, state):
+            print(f"    ⏸ Cooldown active for {strategy}, skipped")
+            continue
+
+        # ─── ارسال سیگنال ───
+        ok = send_telegram(format_message(signal), with_dashboard_button=True)
+        if ok:
+            state = mark_sent(signal, state)
+            state_changed = True
+            print(f"    📨 Telegram sent for {strategy}")
+
+            try:
+                if send_signal_ntfy(signal):
+                    print(f"    🔔 Ntfy sent")
+            except Exception as e:
+                print(f"    ⚠️ Ntfy error: {e}")
+
+            try:
+                if send_signal_sms(signal):
+                    print(f"    📲 SMS sent")
+            except Exception as e:
+                print(f"    ⚠️ SMS error: {e}")
+        else:
+            print(f"    ❌ Telegram failed for {strategy}")
+
+    return state, state_changed
 
 
 def main():
