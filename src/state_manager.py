@@ -30,7 +30,7 @@ def _key(signal_or_trade: dict) -> str:
 
 
 def load_state() -> dict:
-    """خواندن state از Gist"""
+    """خواندن state از Gist (با محافظت از تاریخچه در صورت خطا)"""
     try:
         r = requests.get(GIST_API, headers=_headers(), timeout=20)
         r.raise_for_status()
@@ -54,12 +54,24 @@ def load_state() -> dict:
 
     except Exception as e:
         print(f"[!] load_state error: {e}")
-        return {"last_signals": {}, "history": [], "last_notified": "1970-01-01", "last_win_notified": "1970-01-01"}
+        # 🚨 علامت خطا می‌ذاریم تا main.py متوجه بشه
+        return {
+            "last_signals": {}, 
+            "history": [], 
+            "last_notified": "1970-01-01", 
+            "last_win_notified": "1970-01-01",
+            "_load_error": str(e)
+        }
 
 
 def save_state(state: dict) -> bool:
     """ذخیره state در Gist"""
     try:
+        # اگه state دارای خطای لود بود، ذخیره نکن (برای جلوگیری از پاک شدن تاریخچه)
+        if state.get("_load_error"):
+            print("[!] save_state skipped: state has load error")
+            return False
+
         payload = {
             "files": {
                 "goldpro-state.json": {
@@ -119,7 +131,6 @@ def mark_sent(signal: dict, state: dict) -> dict:
         "entry": signal["entry"],
     }
 
-    # ثبت کامل ترید در تاریخچه
     new_trade = {
         "signal_id": signal.get("signal_id", "N/A"),
         "symbol": symbol,
