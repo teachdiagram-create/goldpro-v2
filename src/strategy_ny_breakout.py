@@ -1,11 +1,13 @@
 import pandas as pd
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 
 def detect_ny_breakout_signal(df_m5: pd.DataFrame) -> dict:
     """
-    استراتژی NY Open Range Breakout (ORB) مخصوص XAUUSD در M5.
-    فقط آخرین کندل بسته شده رو بررسی می‌کنه تا از تکرار جلوگیری بشه.
+    استراتژی NY Open Range Breakout (ORB).
+    فقط آخرین کندل بسته شده رو بررسی می‌کنه.
+    DST با ZoneInfo دقیق محاسبه می‌شه.
     """
     if len(df_m5) < 20:
         return None
@@ -16,29 +18,22 @@ def detect_ny_breakout_signal(df_m5: pd.DataFrame) -> dict:
     
     last_candle = closed.iloc[-1]
     
-    now_utc = datetime.now(timezone.utc)
-    month = now_utc.month
-    is_dst = 3 < month < 11
-    
-    if is_dst:
-        range_start_hour, range_start_minute = 13, 30
-        entry_deadline_hour, entry_deadline_minute = 13, 45
-    else:
-        range_start_hour, range_start_minute = 14, 30
-        entry_deadline_hour, entry_deadline_minute = 14, 45
-
     dt = last_candle["datetime"]
     if isinstance(dt, str):
         dt = datetime.fromisoformat(dt.replace(" ", "T"))
     
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
     
-    range_start = dt.replace(hour=range_start_hour, minute=range_start_minute, second=0, microsecond=0)
-    range_end = range_start.replace(minute=range_start_minute + 5)
-    entry_deadline = dt.replace(hour=entry_deadline_hour, minute=entry_deadline_minute, second=0, microsecond=0)
+    ny_tz = ZoneInfo("America/New_York")
+    dt_ny = dt.astimezone(ny_tz)
     
-    if not (range_end <= dt <= entry_deadline):
+    ny_hour = dt_ny.hour
+    ny_min = dt_ny.minute
+    
+    if not (ny_hour == 9 and 30 <= ny_min <= 35):
         return None
     
     range_candles = []
@@ -46,10 +41,15 @@ def detect_ny_breakout_signal(df_m5: pd.DataFrame) -> dict:
         row_dt = row["datetime"]
         if isinstance(row_dt, str):
             row_dt = datetime.fromisoformat(row_dt.replace(" ", "T"))
+        
         if row_dt.tzinfo is None:
             row_dt = row_dt.replace(tzinfo=timezone.utc)
+        else:
+            row_dt = row_dt.astimezone(timezone.utc)
         
-        if range_start <= row_dt < range_end:
+        row_ny = row_dt.astimezone(ny_tz)
+        
+        if row_ny.hour == 9 and 30 <= row_ny.minute < 35:
             range_candles.append(row)
     
     if not range_candles:
