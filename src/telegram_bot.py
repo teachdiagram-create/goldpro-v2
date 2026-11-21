@@ -11,13 +11,16 @@ def _grade_emoji(grade: str) -> str:
 
 
 def _get_strategy_name(strategy: str) -> str:
-    if strategy == "TREND":
-        return "📈 Trend (EMA+MACD)"
-    elif strategy == "CORRELATION":
-        return "📊 Correlation (DXY)"
-    elif strategy == "ICHIMOKU":
-        return "☁️ Ichimoku (Kumo)"
-    return "🔄 Range (RSI)"
+    names = {
+        "RANGE": "🔄 Range (RSI)",
+        "TREND": "📈 Trend (EMA+MACD)",
+        "CORRELATION": "📊 Correlation (DXY)",
+        "ICHIMOKU": "☁️ Ichimoku",
+        "NY_BREAKOUT": "🗽 NY Breakout",
+        "V6_STRUCTURE": "🏗️ V6 Structure",
+        "TREND_HUNTER": "🎯 Trend Hunter",
+    }
+    return names.get(strategy, f"❔ {strategy}")
 
 
 def format_message(sig: dict) -> str:
@@ -80,13 +83,11 @@ def format_message(sig: dict) -> str:
 
 
 def format_win_message(trade: dict) -> str:
-    """پیام بسته شدن معامله با سود (WIN)"""
     tf = trade.get("timeframe", "5min").replace("min", "M")
     strategy = trade.get("strategy", "RANGE")
     pnl = trade.get("pnl", 0)
     pnl_str = f"+{pnl}" if pnl >= 0 else str(pnl)
     signal_id = trade.get("signal_id", "N/A")
-    
     strategy_name = _get_strategy_name(strategy)
 
     return (
@@ -102,13 +103,11 @@ def format_win_message(trade: dict) -> str:
 
 
 def format_loss_message(trade: dict) -> str:
-    """پیام بسته شدن معامله با ضرر (LOSS)"""
     tf = trade.get("timeframe", "5min").replace("min", "M")
     strategy = trade.get("strategy", "RANGE")
     pnl = trade.get("pnl", 0)
     pnl_str = f"+{pnl}" if pnl > 0 else str(pnl)
     signal_id = trade.get("signal_id", "N/A")
-    
     strategy_name = _get_strategy_name(strategy)
 
     return (
@@ -131,7 +130,7 @@ def _dashboard_keyboard():
     }
 
 
-def send_telegram(text: str, with_dashboard_button: bool = True) -> bool:
+def send_telegram(text: str, with_dashboard_button: bool = False) -> bool:
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
         print("[!] Telegram credentials missing")
         return False
