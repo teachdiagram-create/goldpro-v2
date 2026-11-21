@@ -21,7 +21,6 @@ def _symbol_of(signal_or_trade: dict) -> str:
 
 
 def _key(signal_or_trade: dict) -> str:
-    """کلید یکتا برای cooldown: SYMBOL:TF:SIDE:STRATEGY"""
     symbol = _symbol_of(signal_or_trade)
     tf = signal_or_trade.get("timeframe", "5min")
     side = signal_or_trade.get("side")
@@ -30,7 +29,6 @@ def _key(signal_or_trade: dict) -> str:
 
 
 def load_state() -> dict:
-    """خواندن state از Gist (با محافظت از تاریخچه در صورت خطا)"""
     try:
         r = requests.get(GIST_API, headers=_headers(), timeout=20)
         r.raise_for_status()
@@ -64,7 +62,6 @@ def load_state() -> dict:
 
 
 def save_state(state: dict) -> bool:
-    """ذخیره state در Gist"""
     try:
         if state.get("_load_error"):
             print("[!] save_state skipped: state has load error")
@@ -86,31 +83,24 @@ def save_state(state: dict) -> bool:
 
 
 def should_send(signal: dict, state: dict) -> bool:
-    """چک می‌کنه که آیا این سیگنال رو باید بفرستیم یا نه (Cooldown)"""
-    key = _key(signal)
-    tf = signal.get("timeframe", "5min")
-    strategy = signal.get("strategy", "RANGE")
-
-    last = state.get("last_signals", {}).get(key)
-    if not last:
-        return True
-
-    try:
-        last_time = datetime.fromisoformat(last["sent_at"])
-        elapsed = datetime.utcnow() - last_time
-
-        if elapsed > timedelta(minutes=SIGNAL_COOLDOWN_MIN):
-            return True
-
-        remaining = SIGNAL_COOLDOWN_MIN - int(elapsed.total_seconds() / 60)
-        print(f"⏸ Cooldown {strategy} {tf} — {remaining} min remaining")
+    """
+    چک می‌کنه که آیا این سیگنال قبلاً ارسال شده یا نه.
+    بر اساس signal_id بررسی می‌شه تا فرصت‌های جدید مسدود نشن.
+    """
+    signal_id = signal.get("signal_id")
+    if not signal_id:
         return False
-    except Exception:
-        return True
+    
+    history = state.get("history", [])
+    for t in history:
+        if t.get("signal_id") == signal_id:
+            print(f"⏸ Signal {signal_id} already sent before, skipping")
+            return False
+    
+    return True
 
 
 def mark_sent(signal: dict, state: dict) -> dict:
-    """ثبت سیگنال ارسال‌شده در state + history"""
     key = _key(signal)
     symbol = _symbol_of(signal)
     tf = signal.get("timeframe", "5min")
@@ -155,14 +145,11 @@ def mark_sent(signal: dict, state: dict) -> dict:
 
     state["history"].insert(0, new_trade)
     
-    # 🚨 جدا کردن معاملات باز و بسته‌شده (معاملات باز هرگز حذف نمی‌شن)
     open_trades = [t for t in state["history"] if t.get("result") is None]
     closed_trades = [t for t in state["history"] if t.get("result") is not None]
     
-    # نگه‌داری همه‌ی معاملات باز + ۲۰۰ معامله بسته‌شده آخر
     state["history"] = open_trades + closed_trades[:MAX_HISTORY]
 
-    # پاک کردن سیگنال‌های قدیمی‌تر از ۲۴ ساعت
     cutoff = datetime.utcnow() - timedelta(hours=24)
     state["last_signals"] = {
         k: v for k, v in state["last_signals"].items()
