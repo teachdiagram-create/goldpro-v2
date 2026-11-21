@@ -53,7 +53,6 @@ def process_timeframes(state, dataframes):
         print(f"⚠️ DXY fetch failed - Correlation disabled: {e}")
         df_dxy = None
 
-    # 🚨 حالا لیستی از سیگنال‌ها رو می‌گیریم (نه فقط یکی)
     signals = evaluate_all_signals(df_m5, df_m15, df_dxy, df_dxy)
 
     if not signals:
@@ -63,7 +62,6 @@ def process_timeframes(state, dataframes):
     print(f"📊 Found {len(signals)} valid signal(s)")
     state_changed = False
 
-    # 🚨 روی هر سیگنال جداگانه حلقه می‌زنیم
     for signal in signals:
         grade = signal["quality"]["grade"]
         score = signal["quality"]["score"]
@@ -71,23 +69,19 @@ def process_timeframes(state, dataframes):
         
         print(f"\n  ✅ CANDIDATE: {strategy} {signal['side']} @ {signal['entry']} | Grade={grade} Score={score}")
 
-        # ─── فیلتر ۱: Quality ───
         if grade not in ALLOWED_GRADES:
             print(f"    🚫 Grade {grade} not in {ALLOWED_GRADES}, skipped")
             continue
 
-        # ─── فیلتر ۲: ترید باز برای همین استراتژی ───
         allowed, reason = can_open_trade(state, strategy, max_open=MAX_OPEN_TRADES)
         if not allowed:
             print(f"    🚫 {reason} - skipped")
             continue
 
-        # ─── فیلتر ۳: Cooldown برای همین استراتژی ───
         if not should_send(signal, state):
             print(f"    ⏸ Cooldown active for {strategy}, skipped")
             continue
 
-        # ─── ارسال سیگنال ───
         ok = send_telegram(format_message(signal), with_dashboard_button=True)
         if ok:
             state = mark_sent(signal, state)
@@ -118,6 +112,12 @@ def main():
 
     state = load_state()
     print(f"📦 State keys: {list(state.keys())}")
+
+    # 🚨 اگه خطای خوندن Gist داشتیم، متوقف بشیم (تا تاریخچه پاک نشه)
+    if state.get("_load_error"):
+        print(f"🚨 CRITICAL: Could not load state from Gist! Error: {state['_load_error']}")
+        print(f"🚨 ABORTING to prevent data loss. Please check network/GH_PAT.")
+        return
 
     if "last_notified" not in state:
         state["last_notified"] = "1970-01-01"
