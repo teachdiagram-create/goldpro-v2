@@ -1,6 +1,5 @@
 """
-Risk Manager - مدیریت ریسک و جلوگیری از تریدهای همزمان
-(به ازای هر استراتژی)
+Risk Manager - مدیریت ریسک به ازای هر استراتژی (نه کل ربات)
 """
 from datetime import datetime
 
@@ -15,15 +14,9 @@ def count_open_trades_by_strategy(state: dict, strategy: str) -> int:
     return count
 
 
-def has_open_trade_for_strategy(state: dict, strategy: str, max_open: int = 1) -> bool:
-    """آیا این استراتژی به سقف ترید باز خودش رسیده؟"""
-    return count_open_trades_by_strategy(state, strategy) >= max_open
-
-
 def can_open_trade(state: dict, strategy: str, max_open: int = 1) -> tuple[bool, str]:
     """
-    بررسی آیا استراتژی می‌تونه ترید جدید باز کنه.
-    Returns: (allowed, reason)
+    بررسی آیا استراتژی می‌تونه ترید جدید باز کنه (بر اساس محدودیت خودش).
     """
     open_count = count_open_trades_by_strategy(state, strategy)
     if open_count >= max_open:
