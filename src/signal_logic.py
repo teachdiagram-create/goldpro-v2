@@ -39,7 +39,6 @@ def _is_market_closed_or_opening(dt_str: str) -> bool:
 
 
 def _make_signal_id(prefix: str, timestamp_id: str, side: str) -> str:
-    """ساخت شناسه یکتا با در نظر گرفتن جهت (BUY/SELL)"""
     side_char = "B" if side == "BUY" else "S"
     return f"{prefix}-{side_char}-{timestamp_id}"
 
@@ -106,9 +105,6 @@ def _build_reason(setup: dict, side: str, strategy: str) -> str:
 
 
 def evaluate_all_signals(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
-    """
-    ارزیابی همه استراتژی‌ها و برگرداندن لیست سیگنال‌های معتبر.
-    """
     closed_m5 = df_m5.iloc[:-1]
     current_m5 = closed_m5.iloc[-1]
     rsi_series_m5 = closed_m5["rsi"]
@@ -140,6 +136,7 @@ def evaluate_all_signals(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
         "adx": round(adx_, 1),
         "atr": round(atr_, 2),
         "time": dt_str,
+        "signal_time": dt_str,
     }
 
     all_signals = []
