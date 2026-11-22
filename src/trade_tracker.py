@@ -33,15 +33,15 @@ def check_trade_result(trade: dict, df) -> dict:
     if df["datetime"].dt.tz is None:
         df["datetime"] = df["datetime"].dt.tz_localize(signal_dt.tzinfo)
     
-    # 🚨 اصلاح: فقط کندل‌های بسته‌شده (کندل آخر حذف می‌شه)
     df_closed = df.iloc[:-1]
-    
     new_candles = df_closed[df_closed["datetime"] >= signal_dt].reset_index(drop=True)
 
     if len(new_candles) == 0:
         return trade
 
     for idx, candle in new_candles.iterrows():
+        bars_to_close = idx + 1  # 🚨 تعداد کندل‌های گذشته
+        
         # 🚨 بررسی Timeout
         if idx >= TRADE_CHECK_MAX_BARS:
             close_price = float(candle["close"])
@@ -52,6 +52,7 @@ def check_trade_result(trade: dict, df) -> dict:
                 "exit_price": round(close_price, 2), 
                 "exit_time": str(candle["datetime"]), 
                 "pnl": round(pnl, 2), 
+                "bars_to_close": bars_to_close,
                 "closed_at": datetime.utcnow().isoformat()
             }
         
@@ -63,38 +64,38 @@ def check_trade_result(trade: dict, df) -> dict:
         if side == "BUY":
             if open_price <= sl:
                 pnl = open_price - entry
-                return {**trade, "result": "LOSS", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                return {**trade, "result": "LOSS", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "bars_to_close": bars_to_close, "closed_at": datetime.utcnow().isoformat()}
             if open_price >= tp:
                 pnl = open_price - entry
-                return {**trade, "result": "WIN", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                return {**trade, "result": "WIN", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "bars_to_close": bars_to_close, "closed_at": datetime.utcnow().isoformat()}
         else:
             if open_price >= sl:
                 pnl = entry - open_price
-                return {**trade, "result": "LOSS", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                return {**trade, "result": "LOSS", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "bars_to_close": bars_to_close, "closed_at": datetime.utcnow().isoformat()}
             if open_price <= tp:
                 pnl = entry - open_price
-                return {**trade, "result": "WIN", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                return {**trade, "result": "WIN", "exit_price": round(open_price, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "bars_to_close": bars_to_close, "closed_at": datetime.utcnow().isoformat()}
 
         if side == "BUY":
             if low <= sl and high >= tp:
                 pnl = sl - entry
-                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "bars_to_close": bars_to_close, "closed_at": datetime.utcnow().isoformat()}
             if low <= sl:
                 pnl = sl - entry
-                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "bars_to_close": bars_to_close, "closed_at": datetime.utcnow().isoformat()}
             if high >= tp:
                 pnl = tp - entry
-                return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "bars_to_close": bars_to_close, "closed_at": datetime.utcnow().isoformat()}
         else:
             if high >= sl and low <= tp:
                 pnl = entry - sl
-                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "bars_to_close": bars_to_close, "closed_at": datetime.utcnow().isoformat()}
             if high >= sl:
                 pnl = entry - sl
-                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                return {**trade, "result": "LOSS", "exit_price": round(sl, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "bars_to_close": bars_to_close, "closed_at": datetime.utcnow().isoformat()}
             if low <= tp:
                 pnl = entry - tp
-                return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "closed_at": datetime.utcnow().isoformat()}
+                return {**trade, "result": "WIN", "exit_price": round(tp, 2), "exit_time": candle_dt, "pnl": round(pnl, 2), "bars_to_close": bars_to_close, "closed_at": datetime.utcnow().isoformat()}
 
     return trade
 
@@ -136,7 +137,8 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
         if updated_trade.get("result") and not trade.get("result"):
             updated_count += 1
             emoji = "✅" if updated_trade["result"] == "WIN" else "❌" if updated_trade["result"] == "LOSS" else "⏰"
-            print(f"  {emoji} Trade closed: {symbol} {tf} {trade['side']} -> {updated_trade['result']} ({updated_trade['pnl']:+.2f})")
+            btc = updated_trade.get("bars_to_close", "?")
+            print(f"  {emoji} Trade closed: {symbol} {tf} {trade['side']} -> {updated_trade['result']} ({updated_trade['pnl']:+.2f}) | Bars: {btc}")
 
         new_history.append(updated_trade)
 
@@ -145,6 +147,9 @@ def update_open_trades(state: dict, dataframes: dict) -> tuple:
 
 
 def calculate_win_stats(history: list) -> dict:
+    """
+    محاسبه آمار برد/باخت + میانگین تعداد کندل‌ها برای هر استراتژی.
+    """
     closed = [t for t in history if t.get("result")]
     wins = [t for t in closed if t["result"] == "WIN"]
     losses = [t for t in closed if t["result"] == "LOSS"]
@@ -155,6 +160,28 @@ def calculate_win_stats(history: list) -> dict:
     total_loss_pnl = abs(sum(t.get("pnl", 0) for t in losses))
 
     win_rate = round(len(wins) / len(closed) * 100, 1) if closed else 0
+
+    # 🚨 آمار به تفکیک استراتژی
+    strategy_stats = {}
+    all_strategies = set(t.get("strategy", "UNKNOWN") for t in closed)
+    for strat in all_strategies:
+        strat_trades = [t for t in closed if t.get("strategy") == strat]
+        strat_wins = [t for t in strat_trades if t["result"] == "WIN"]
+        strat_losses = [t for t in strat_trades if t["result"] == "LOSS"]
+        
+        # میانگین bars_to_close (فقط برای تریدهای WIN و LOSS، نه TIMEOUT)
+        bars_list = [t.get("bars_to_close", 0) for t in strat_trades if t.get("bars_to_close") and t["result"] in ["WIN", "LOSS"]]
+        avg_bars = round(sum(bars_list) / len(bars_list), 1) if bars_list else 0
+        
+        strat_closed = len(strat_wins) + len(strat_losses)
+        strat_wr = round(len(strat_wins) / strat_closed * 100, 1) if strat_closed > 0 else 0
+        
+        strategy_stats[strat] = {
+            "wins": len(strat_wins),
+            "losses": len(strat_losses),
+            "win_rate": strat_wr,
+            "avg_bars_to_close": avg_bars,
+        }
 
     return {
         "open": len([t for t in history if not t.get("result")]),
@@ -167,4 +194,5 @@ def calculate_win_stats(history: list) -> dict:
         "avg_win": round(total_win_pnl / len(wins), 2) if wins else 0,
         "avg_loss": round(total_loss_pnl / len(losses), 2) if losses else 0,
         "profit_factor": round(total_win_pnl / total_loss_pnl, 2) if total_loss_pnl > 0 else 0,
+        "by_strategy": strategy_stats,
     }
