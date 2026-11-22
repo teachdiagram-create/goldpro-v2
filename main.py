@@ -3,7 +3,10 @@ from src.config import TIMEFRAMES, USE_GIST, ALLOWED_GRADES, MAX_OPEN_TRADES
 from src.data_fetcher import fetch_ohlc, fetch_dxy_yfinance
 from src.indicators import add_indicators
 from src.signal_logic import evaluate_all_signals
-from src.telegram_bot import send_telegram, format_message, format_win_message, format_loss_message
+from src.telegram_bot import (
+    send_telegram, format_message, format_win_message, 
+    format_loss_message, format_timeout_message
+)
 from src.notifier import send_signal_ntfy, send_trade_closed_ntfy
 from src.sms_sender import send_signal_sms, send_win_sms
 from src.risk_manager import can_open_trade
@@ -79,7 +82,7 @@ def process_timeframes(state, dataframes):
             continue
 
         if not should_send(signal, state):
-            print(f"    ⏸ Cooldown active for {strategy}, skipped")
+            print(f"    ⏸ Cooldown/Signal ID active for {strategy}, skipped")
             continue
 
         ok = send_telegram(format_message(signal), with_dashboard_button=True)
@@ -113,7 +116,6 @@ def main():
     state = load_state()
     print(f"📦 State keys: {list(state.keys())}")
 
-    # 🚨 اگه خطای خوندن Gist داشتیم، متوقف بشیم (تا تاریخچه پاک نشه)
     if state.get("_load_error"):
         print(f"🚨 CRITICAL: Could not load state from Gist! Error: {state['_load_error']}")
         print(f"🚨 ABORTING to prevent data loss. Please check network/GH_PAT.")
@@ -154,14 +156,18 @@ def main():
                 print(f"✅ {closed_count} trade(s) closed")
 
                 for trade in state.get("history", []):
-                    if (trade.get("result") in ["WIN", "LOSS"]
+                    # 🚨 اصلاح: TIMEOUT هم پیام بگیره
+                    if (trade.get("result") in ["WIN", "LOSS", "TIMEOUT"]
                             and trade.get("closed_at")
                             and not trade.get("notified")):
                         
                         if trade["result"] == "WIN":
                             msg = format_win_message(trade)
-                        else:
+                        elif trade["result"] == "LOSS":
                             msg = format_loss_message(trade)
+                        else:  # TIMEOUT
+                            msg = format_timeout_message(trade)
+                        
                         send_telegram(msg, with_dashboard_button=True)
                         
                         send_trade_closed_ntfy(trade)
@@ -176,7 +182,7 @@ def main():
 
             stats = calculate_win_stats(state.get("history", []))
             if stats:
-                print(f"\n📊 Stats: {stats.get('wins', 0)}W / {stats.get('losses', 0)}L | "
+                print(f"\n📊 Stats: {stats.get('wins', 0)}W / {stats.get('losses', 0)}L / {stats.get('timeouts', 0)}T | "
                       f"WR={stats.get('win_rate', 0)}% | "
                       f"PnL={stats.get('total_pnl', 0):+.2f} | "
                       f"PF={stats.get('profit_factor', 0)}")
