@@ -144,8 +144,8 @@ def main():
     if changed:
         state_changed = True
 
-    if state.get("current_price") is not None:
-        state_changed = True
+    # 🚨 اصلاح: فقط تغییرات مهم state_changed رو True می‌کنن
+    # (قیمت رو تو state آپدیت می‌کنیم، ولی به تنهایی باعث ذخیره نمی‌شه)
 
     if USE_GIST and dataframes:
         print(f"\n🔎 Checking open trades...")
@@ -156,7 +156,6 @@ def main():
                 print(f"✅ {closed_count} trade(s) closed")
 
                 for trade in state.get("history", []):
-                    # 🚨 اصلاح: TIMEOUT هم پیام بگیره
                     if (trade.get("result") in ["WIN", "LOSS", "TIMEOUT"]
                             and trade.get("closed_at")
                             and not trade.get("notified")):
@@ -165,11 +164,10 @@ def main():
                             msg = format_win_message(trade)
                         elif trade["result"] == "LOSS":
                             msg = format_loss_message(trade)
-                        else:  # TIMEOUT
+                        else:
                             msg = format_timeout_message(trade)
                         
                         send_telegram(msg, with_dashboard_button=True)
-                        
                         send_trade_closed_ntfy(trade)
                         
                         if trade["result"] == "WIN":
