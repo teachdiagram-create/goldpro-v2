@@ -33,7 +33,10 @@ def check_trade_result(trade: dict, df) -> dict:
     if df["datetime"].dt.tz is None:
         df["datetime"] = df["datetime"].dt.tz_localize(signal_dt.tzinfo)
     
-    new_candles = df[df["datetime"] >= signal_dt].reset_index(drop=True)
+    # 🚨 اصلاح: فقط کندل‌های بسته‌شده (کندل آخر حذف می‌شه)
+    df_closed = df.iloc[:-1]
+    
+    new_candles = df_closed[df_closed["datetime"] >= signal_dt].reset_index(drop=True)
 
     if len(new_candles) == 0:
         return trade
