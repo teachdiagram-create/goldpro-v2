@@ -2,6 +2,7 @@
 Strategy: Correlation + Trend Confirmation
 """
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import pandas as pd
 
 
@@ -17,11 +18,9 @@ def check_correlation(df_gold, df_dxy, window: int = 20) -> tuple[bool, float]:
         gold = df_gold[["datetime", "close"]].tail(window + 10).copy()
         dxy = df_dxy[["datetime", "close"]].tail(window + 10).copy()
         
-        # تبدیل به datetime
         gold["datetime"] = pd.to_datetime(gold["datetime"])
         dxy["datetime"] = pd.to_datetime(dxy["datetime"])
         
-        # تبدیل به UTC
         if gold["datetime"].dt.tz is None:
             gold["datetime"] = gold["datetime"].dt.tz_localize("UTC")
         else:
@@ -32,11 +31,10 @@ def check_correlation(df_gold, df_dxy, window: int = 20) -> tuple[bool, float]:
         else:
             dxy["datetime"] = dxy["datetime"].dt.tz_convert("UTC")
         
-        # 🚨 هم‌ترازی: زمان‌ها رو به نزدیک‌ترین ۵ دقیقه گرد می‌کنیم
+        # هم‌ترازی: زمان‌ها رو به نزدیک‌ترین ۵ دقیقه گرد می‌کنیم
         gold["time_5m"] = gold["datetime"].dt.floor("5min")
         dxy["time_5m"] = dxy["datetime"].dt.floor("5min")
         
-        # merge بر اساس زمان ۵ دقیقه‌ای
         merged = pd.merge(
             gold[["time_5m", "close"]], 
             dxy[["time_5m", "close"]], 
@@ -47,7 +45,6 @@ def check_correlation(df_gold, df_dxy, window: int = 20) -> tuple[bool, float]:
         if len(merged) < 10:
             return False, 0.0
         
-        # محاسبه درصد تغییرات
         gold_ret = merged["close_gold"].pct_change().dropna()
         dxy_ret = merged["close_dxy"].pct_change().dropna()
         
@@ -79,43 +76,40 @@ def check_news_blackout(dt_str: str) -> tuple[bool, str]:
 
 
 def check_trading_hours(dt_str: str) -> tuple[bool, str]:
+    """
+    فیلتر ساعت: لندن + نیویورک با استفاده از ZoneInfo (DST دقیق).
+    """
     try:
         dt = datetime.fromisoformat(dt_str.replace(" ", "T"))
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
         
-        h = dt.hour
-        month = dt.month
-        day = dt.day
+        # 🚨 محاسبه دقیق DST با ZoneInfo
+        london_tz = ZoneInfo("Europe/London")
+        ny_tz = ZoneInfo("America/New_York")
         
-        europe_summer = (month > 3 and month < 10) or \
-                        (month == 3 and day >= 20) or \
-                        (month == 10 and day < 25)
+        dt_london = dt.astimezone(london_tz)
+        dt_ny = dt.astimezone(ny_tz)
         
-        london_start = 7 if europe_summer else 8
-        london_end = 16
+        # لندن: 8:00 تا 16:30 به وقت لندن
+        in_london = 8 <= dt_london.hour < 16 or (dt_london.hour == 16 and dt_london.minute <= 30)
         
-        us_summer = (month > 3 and month < 11) or \
-                    (month == 3 and day >= 8) or \
-                    (month == 11 and day < 1)
+        # نیویورک: 9:30 تا 16:00 به وقت نیویورک
+        in_ny = (dt_ny.hour == 9 and dt_ny.minute >= 30) or (10 <= dt_ny.hour < 16)
         
-        ny_start = 12 if us_summer else 13
-        ny_end = 21
-        
-        in_london = london_start <= h < london_end
-        in_ny = ny_start <= h < ny_end
-        in_overlap = in_london and in_ny
-        
-        if in_overlap:
-            return True, f"London+NY overlap (UTC {h:02d})"
+        if in_london and in_ny:
+            return True, "London+NY overlap"
         if in_london:
-            return True, f"London session (UTC {h:02d})"
+            return True, "London session"
         if in_ny:
-            return True, f"New York session (UTC {h:02d})"
+            return True, "New York session"
         
-        return False, f"Outside trading hours (UTC {h:02d})"
+        return False, "Outside trading hours"
     
-    except Exception:
+    except Exception as e:
+        print(f"[!] check_trading_hours error: {e}")
         return False, "Invalid time"
 
 
