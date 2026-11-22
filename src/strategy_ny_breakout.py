@@ -6,8 +6,9 @@ from zoneinfo import ZoneInfo
 def detect_ny_breakout_signal(df_m5: pd.DataFrame) -> dict:
     """
     استراتژی NY Open Range Breakout (ORB).
-    فقط آخرین کندل بسته شده رو بررسی می‌کنه.
-    DST با ZoneInfo دقیق محاسبه می‌شه.
+    - بازه رنج: 9:30 تا 9:45 (15 دقیقه اول)
+    - بازه بریک‌اوت: 9:45 تا 10:30 (45 دقیقه بعد)
+    - DST با ZoneInfo دقیق
     """
     if len(df_m5) < 20:
         return None
@@ -33,9 +34,11 @@ def detect_ny_breakout_signal(df_m5: pd.DataFrame) -> dict:
     ny_hour = dt_ny.hour
     ny_min = dt_ny.minute
     
-    if not (ny_hour == 9 and 30 <= ny_min <= 35):
+    # 🚨 بازه بریک‌اوت: 9:45 تا 10:30 (به جای 9:30-9:45)
+    if not (ny_hour == 9 and 45 <= ny_min) and not (ny_hour == 10 and ny_min <= 30):
         return None
     
+    # پیدا کردن رنج از 9:30 تا 9:45
     range_candles = []
     for idx, row in closed.iterrows():
         row_dt = row["datetime"]
@@ -49,7 +52,8 @@ def detect_ny_breakout_signal(df_m5: pd.DataFrame) -> dict:
         
         row_ny = row_dt.astimezone(ny_tz)
         
-        if row_ny.hour == 9 and 30 <= row_ny.minute < 35:
+        # رنج: 9:30 تا 9:45
+        if row_ny.hour == 9 and 30 <= row_ny.minute < 45:
             range_candles.append(row)
     
     if not range_candles:
