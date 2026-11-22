@@ -1,160 +1,25 @@
-import json
-import requests
-from datetime import datetime, timedelta
-from src.config import GH_GIST_ID, GH_PAT, SIGNAL_COOLDOWN_MIN
-
-
-GIST_API = f"https://api.github.com/gists/{GH_GIST_ID}"
-MAX_HISTORY = 200
-
-
-def _headers():
-    return {
-        "Authorization": f"Bearer {GH_PAT}",
-        "Accept": "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-
-def _symbol_of(signal_or_trade: dict) -> str:
-    return signal_or_trade.get("symbol", "XAU/USD")
-
-
-def _key(signal_or_trade: dict) -> str:
-    symbol = _symbol_of(signal_or_trade)
-    tf = signal_or_trade.get("timeframe", "5min")
-    side = signal_or_trade.get("side")
-    strategy = signal_or_trade.get("strategy", "RANGE")
-    return f"{symbol}:{tf}:{side}:{strategy}"
-
-
-def load_state() -> dict:
-    try:
-        r = requests.get(GIST_API, headers=_headers(), timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        files = data.get("files", {})
-        if "goldpro-state.json" not in files:
-            return {"last_signals": {}, "history": [], "last_notified": "1970-01-01", "last_win_notified": "1970-01-01"}
-
-        content = files["goldpro-state.json"].get("content", "{}")
-        state = json.loads(content) if content.strip() else {}
-
-        if "last_signals" not in state:
-            old = {k: v for k, v in state.items() if ":" in k}
-            state = {"last_signals": old, "history": []}
-
-        state.setdefault("history", [])
-        state.setdefault("last_notified", "1970-01-01")
-        state.setdefault("last_win_notified", "1970-01-01")
-        
-        return state
-
-    except Exception as e:
-        print(f"[!] load_state error: {e}")
-        return {
-            "last_signals": {}, 
-            "history": [], 
-            "last_notified": "1970-01-01", 
-            "last_win_notified": "1970-01-01",
-            "_load_error": str(e)
-        }
-
-
-def save_state(state: dict) -> bool:
-    try:
-        if state.get("_load_error"):
-            print("[!] save_state skipped: state has load error")
-            return False
-
-        payload = {
-            "files": {
-                "goldpro-state.json": {
-                    "content": json.dumps(state, indent=2, ensure_ascii=False)
-                }
-            }
-        }
-        r = requests.patch(GIST_API, headers=_headers(), json=payload, timeout=20)
-        r.raise_for_status()
-        return True
-    except Exception as e:
-        print(f"[!] save_state error: {e}")
-        return False
-
-
-def should_send(signal: dict, state: dict) -> bool:
-    """
-    چک می‌کنه که آیا این سیگنال قبلاً ارسال شده یا نه.
-    بر اساس signal_id بررسی می‌شه تا فرصت‌های جدید مسدود نشن.
-    """
-    signal_id = signal.get("signal_id")
-    if not signal_id:
-        return False
-    
-    history = state.get("history", [])
-    for t in history:
-        if t.get("signal_id") == signal_id:
-            print(f"⏸ Signal {signal_id} already sent before, skipping")
-            return False
-    
-    return True
-
-
-def mark_sent(signal: dict, state: dict) -> dict:
-    key = _key(signal)
-    symbol = _symbol_of(signal)
-    tf = signal.get("timeframe", "5min")
-    strategy = signal.get("strategy", "RANGE")
-    now = datetime.utcnow().isoformat()
-
-    state.setdefault("last_signals", {})
-    state.setdefault("history", [])
-
-    state["last_signals"][key] = {
-        "symbol": symbol,
-        "side": signal["side"],
-        "timeframe": tf,
-        "strategy": strategy,
-        "sent_at": now,
-        "entry": signal["entry"],
-    }
-
-    new_trade = {
-        "signal_id": signal.get("signal_id", "N/A"),
-        "symbol": symbol,
-        "side": signal["side"],
-        "timeframe": tf,
-        "strategy": strategy,
-        "quality": signal.get("quality"),
-        "entry": signal["entry"],
-        "sl": signal.get("sl"),
-        "tp": signal.get("tp"),
-        "sl_distance": signal.get("sl_distance"),
-        "tp_distance": signal.get("tp_distance"),
-        "rr": signal.get("rr"),
-        "rsi": signal.get("rsi"),
-        "adx": signal.get("adx"),
-        "atr": signal.get("atr"),
-        "reason": signal.get("reason"),
-        "signal_time": signal.get("signal_time", now),
-        "sent_at": now,
-        "result": None,
-        "exit_price": None,
-        "exit_time": None,
-        "pnl": None,
-    }
-
-    state["history"].insert(0, new_trade)
-    
-    open_trades = [t for t in state["history"] if t.get("result") is None]
-    closed_trades = [t for t in state["history"] if t.get("result") is not None]
-    
-    state["history"] = open_trades + closed_trades[:MAX_HISTORY]
-
-    cutoff = datetime.utcnow() - timedelta(hours=24)
-    state["last_signals"] = {
-        k: v for k, v in state["last_signals"].items()
-        if datetime.fromisoformat(v["sent_at"]) > cutoff
-    }
-
-    return state
+new_trade = {
+    "signal_id": signal.get("signal_id", "N/A"),
+    "symbol": symbol,
+    "side": signal["side"],
+    "timeframe": tf,
+    "strategy": strategy,
+    "quality": signal.get("quality"),
+    "entry": signal["entry"],
+    "sl": signal.get("sl"),
+    "tp": signal.get("tp"),
+    "sl_distance": signal.get("sl_distance"),
+    "tp_distance": signal.get("tp_distance"),
+    "rr": signal.get("rr"),
+    "rsi": signal.get("rsi"),
+    "adx": signal.get("adx"),
+    "atr": signal.get("atr"),
+    "reason": signal.get("reason"),
+    "signal_time": signal.get("signal_time", now),
+    "sent_at": now,
+    "result": None,
+    "exit_price": None,
+    "exit_time": None,
+    "pnl": None,
+    "bars_to_close": None,  # ← این خط جدید
+}
