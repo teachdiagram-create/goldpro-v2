@@ -144,9 +144,6 @@ def main():
     if changed:
         state_changed = True
 
-    # 🚨 اصلاح: فقط تغییرات مهم state_changed رو True می‌کنن
-    # (قیمت رو تو state آپدیت می‌کنیم، ولی به تنهایی باعث ذخیره نمی‌شه)
-
     if USE_GIST and dataframes:
         print(f"\n🔎 Checking open trades...")
         try:
@@ -180,10 +177,18 @@ def main():
 
             stats = calculate_win_stats(state.get("history", []))
             if stats:
-                print(f"\n📊 Stats: {stats.get('wins', 0)}W / {stats.get('losses', 0)}L / {stats.get('timeouts', 0)}T | "
+                print(f"\n📊 Overall Stats: {stats.get('wins', 0)}W / {stats.get('losses', 0)}L / {stats.get('timeouts', 0)}T | "
                       f"WR={stats.get('win_rate', 0)}% | "
                       f"PnL={stats.get('total_pnl', 0):+.2f} | "
                       f"PF={stats.get('profit_factor', 0)}")
+                
+                by_strat = stats.get("by_strategy", {})
+                if by_strat:
+                    print(f"\n📊 Stats by Strategy:")
+                    for strat, s in sorted(by_strat.items(), key=lambda x: x[1]["win_rate"], reverse=True):
+                        print(f"  {strat}: {s['wins']}W / {s['losses']}L | "
+                              f"WR={s['win_rate']}% | "
+                              f"Avg Bars to Close: {s['avg_bars_to_close']}")
         except Exception as e:
             print(f"❌ update_open_trades error: {e}")
 
