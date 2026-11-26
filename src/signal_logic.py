@@ -10,14 +10,10 @@ from src.strategy import (
     detect_trend_signal,
     check_divergence,
 )
-from src.strategy_correlation import (
-    check_correlation,
-    check_news_blackout,
-    check_trading_hours,
-    detect_trend_m15,
-    detect_trigger_m5,
-)
-from src.strategy_ichimoku import detect_ichimoku_signal
+# 🚨 Correlation حذف شد
+# from src.strategy_correlation import (...)
+# 🚨 Ichimoku حذف شد
+# from src.strategy_ichimoku import detect_ichimoku_signal
 from src.strategy_ny_breakout import detect_ny_breakout_signal
 from src.strategy_v6 import detect_v6_signal
 from src.strategy_trend_hunter import detect_trend_hunter_signal
@@ -67,7 +63,7 @@ def _compute_quality(adx_val: float, atr_val: float, rsi_val: float,
         if strategy == "RANGE":
             if side == "SELL" and rsi_val <= 65: score += 10; flags.append("RSI تأیید می‌کند")
             elif side == "BUY" and rsi_val >= 35: score += 10; flags.append("RSI تأیید می‌کند")
-        elif strategy in ("TREND", "CORRELATION", "ICHIMOKU", "NY_BREAKOUT", "V6_STRUCTURE", "TREND_HUNTER"):
+        elif strategy in ("TREND", "NY_BREAKOUT", "V6_STRUCTURE", "TREND_HUNTER"):
             if side == "BUY" and 40 <= rsi_val <= 70: score += 10; flags.append("RSI در محدوده")
             elif side == "SELL" and 30 <= rsi_val <= 60: score += 10; flags.append("RSI در محدوده")
 
@@ -91,10 +87,6 @@ def _build_reason(setup: dict, side: str, strategy: str) -> str:
             return f"RSI double bottom: {setup.get('trough1_value')} -> {setup.get('trough2_value')}"
     elif strategy == "TREND":
         return "EMA Cross + MACD"
-    elif strategy == "CORRELATION":
-        return f"DXY corr + M15 trend {side} + M5 trigger"
-    elif strategy == "ICHIMOKU":
-        return "Ichimoku cross (Tenkan/Kijun) - Inverted"
     elif strategy == "NY_BREAKOUT":
         return f"NY ORB {side}: Range {setup.get('range_low')}-{setup.get('range_high')}"
     elif strategy == "V6_STRUCTURE":
@@ -141,7 +133,7 @@ def evaluate_all_signals(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
 
     all_signals = []
 
-    # ─── استراتژی ۰: NY ORB BREAKOUT ───
+    # ─── استراتژی NY ORB BREAKOUT (فعلاً نگه داشته می‌شود) ───
     ny_signal = detect_ny_breakout_signal(df_m5)
     if ny_signal:
         side = ny_signal["direction"]
@@ -230,32 +222,7 @@ def evaluate_all_signals(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
             "valid": True,
         })
 
-    # ─── استراتژی ۱: CORRELATION ───
-    if df_dxy_m5 is not None and len(df_dxy_m5) > 20 and df_m15 is not None:
-        hour_ok, _ = check_trading_hours(dt_str)
-        news_blocked, _ = check_news_blackout(dt_str)
-        if hour_ok and not news_blocked:
-            trend = detect_trend_m15(df_m15.iloc[:-1])
-            if trend in ("BUY", "SELL"):
-                corr_ok, corr_val = check_correlation(df_m5, df_dxy_m5)
-                trigger_ok = detect_trigger_m5(closed_m5, trend)
-                if corr_ok and trigger_ok:
-                    sl_dist = min(max(SL_CORR_MULT * atr_, 3.0), MAX_SL_USD)
-                    tp_dist = min(max(TP_CORR_MULT * atr_, 4.5), MAX_SL_USD * 1.5)
-                    sl = round(price + sl_dist if trend == "SELL" else price - sl_dist, 2)
-                    tp = round(price - tp_dist if trend == "SELL" else price + tp_dist, 2)
-                    q = _compute_quality(adx_, atr_, rsi_, trend, "CORRELATION")
-                    all_signals.append({
-                        **base, "signal_id": _make_signal_id("C", timestamp_id, trend),
-                        "side": trend, "entry": round(price, 2),
-                        "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": round(tp_dist/sl_dist, 2),
-                        "strategy": "CORRELATION",
-                        "quality": q,
-                        "reason": f"DXY corr={corr_val} + M15 {trend} + M5 trigger",
-                        "valid": True,
-                    })
-
-    # ─── استراتژی ۲: RANGE ───
+    # ─── استراتژی RANGE ───
     if adx_ < 30:
         sell_setup = detect_double_top_sell(rsi_series_m5)
         if sell_setup:
@@ -289,7 +256,7 @@ def evaluate_all_signals(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                     "valid": True,
                 })
 
-    # ─── استراتژی ۳: TREND ───
+    # ─── استراتژی TREND ───
     trend_signal = detect_trend_signal(closed_m5)
     if trend_signal:
         side = trend_signal["direction"]
@@ -306,28 +273,6 @@ def evaluate_all_signals(df_m5, df_m15, df_dxy_m5=None, df_dxy_m15=None):
                 "valid": True,
             })
 
-    # ─── استراتژی ۴: ICHIMOKU ───
-    ichi_signal = detect_ichimoku_signal(df_m5)
-    if ichi_signal:
-        side = ichi_signal["direction"]
-        sl_dist = min(max(SL_ICHI_MULT * atr_, MIN_SL_USD), MAX_SL_USD)
-        tp_dist = min(max(TP_ICHI_MULT * atr_, MIN_TP_USD), MAX_SL_USD * 1.5)
-        if side == "SELL":
-            sl = round(price + sl_dist, 2)
-            tp = round(price - tp_dist, 2)
-        else:
-            sl = round(price - sl_dist, 2)
-            tp = round(price + tp_dist, 2)
-        rr = round(tp_dist / sl_dist, 2) if sl_dist > 0 else 0
-        q = _compute_quality(adx_, atr_, rsi_, side, "ICHIMOKU")
-        all_signals.append({
-            **base, "signal_id": _make_signal_id("I", timestamp_id, side),
-            "side": side, "entry": round(price, 2),
-            "sl": sl, "tp": tp, "sl_distance": round(sl_dist, 2), "tp_distance": round(tp_dist, 2), "rr": rr,
-            "strategy": "ICHIMOKU",
-            "quality": q,
-            "reason": _build_reason(ichi_signal, side, "ICHIMOKU"),
-            "valid": True,
-        })
+    # 🚨 استراتژی‌های ICHIMOKU و CORRELATION به طور کامل حذف شدند
 
     return all_signals
